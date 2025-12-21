@@ -1,7 +1,9 @@
 use crate::parser::AST;
 
 pub struct OUTPUT {}
-pub type Error = ();
+
+#[derive(Debug)]
+pub struct Error {}
 pub fn evaluate(ast: AST) -> Result<OUTPUT, Error> {
     println!("Evaluating...");
     Ok(OUTPUT {})

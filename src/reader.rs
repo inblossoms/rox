@@ -1,6 +1,7 @@
 pub struct Source {}
 
-pub type Error = ();
+#[derive(Debug)]
+pub struct Error {}
 pub fn reader_source(filename: &str) -> Result<Source, Error> {
     println!("Reading source code...");
     Ok(Source {})

@@ -1,7 +1,9 @@
 use crate::reader::Source;
 
 pub struct Tokens {}
-pub type Error = ();
+
+#[derive(Debug)]
+pub struct Error {}
 pub fn tokenize(source: Source) -> Result<Tokens, Error> {
     println!("Tokenizing...");
     Ok(Tokens {})

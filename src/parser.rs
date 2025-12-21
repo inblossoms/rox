@@ -1,7 +1,9 @@
 use crate::tokenizer::Tokens;
 
 pub struct AST {}
-pub type Error = ();
+
+#[derive(Debug)]
+pub struct Error {}
 
 pub fn parse(tokens: Tokens) -> Result<AST, Error> {
     println!("Parsing...");
