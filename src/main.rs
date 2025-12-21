@@ -6,8 +6,8 @@ mod tokenizer;
 fn main() {
     println!("Hello, lox!");
 
-    let source = reader::reader_source("file.lox");
-    let tokens = tokenizer::tokenize(source);
-    let ast = parser::parse(tokens);
-    let out = evaluate::evaluate(ast);
+    let source = reader::reader_source("file.lox").unwrap();
+    let tokens = tokenizer::tokenize(source).unwrap();
+    let ast = parser::parse(tokens).unwrap();
+    let out = evaluate::evaluate(ast).unwrap();
 }

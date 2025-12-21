@@ -1,8 +1,10 @@
 use crate::parser::AST;
 
-pub type OUTPUT = ();
-pub fn evaluate(ast: AST) -> OUTPUT {
+pub struct OUTPUT {}
+pub type Error = ();
+pub fn evaluate(ast: AST) -> Result<OUTPUT, Error> {
     println!("Evaluating...");
+    Ok(OUTPUT {})
 }
 
 #[cfg(test)]
