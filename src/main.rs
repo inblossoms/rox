@@ -1,3 +1,7 @@
+use std::env;
+
+use crate::reader::Source;
+
 mod evaluate;
 mod parser;
 mod reader;
@@ -33,21 +37,37 @@ impl_from_error!(Error, Read, Parse, Evaluate, Tokenize);
 fn main() {
     println!("Hello, lox!");
 
-    match run() {
-        Ok(out) => {
-            println!("Success! {:?}", out);
+    let input_args = env::args().collect::<Vec<_>>();
+
+    if input_args.len() == 1 {
+        run_prompt();
+    } else if input_args.len() == 2 {
+        match run_file(&input_args[1]) {
+            Ok(out) => {
+                println!("Success! {:?}", out);
+            }
+            Err(e) => {
+                eprintln!("Work goes wrong, failed info: {:?}", e);
+            }
         }
-        Err(e) => {
-            println!("Work goes wrong, failed info: {:?}", e);
-        }
+    } else {
+        eprintln!("Usage: lox [script]");
     }
 }
 
-fn run() -> Result<(), Error> {
-    let source = reader::reader_source("file.lox")?;
+fn run_interpreter(source: Source) -> Result<(), Error> {
     let tokens = tokenizer::tokenize(source)?;
     let ast = parser::parse(tokens)?;
     let out = evaluate::evaluate(ast)?;
 
     Ok(())
+}
+
+fn run_file(file: &str) -> Result<(), Error> {
+    let source = reader::reader_source(file)?;
+    run_interpreter(source)
+}
+
+fn run_prompt() {
+    todo!()
 }
