@@ -5,7 +5,7 @@ pub struct AST {}
 #[derive(Debug)]
 pub struct Error {}
 
-pub fn parse(tokens: Tokens) -> Result<AST, Error> {
+pub fn parse(_tokens: Tokens) -> Result<AST, Error> {
     println!("Parsing...");
     Ok(AST {})
 }

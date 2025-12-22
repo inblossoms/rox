@@ -4,7 +4,7 @@ pub struct OUTPUT {}
 
 #[derive(Debug)]
 pub struct Error {}
-pub fn evaluate(ast: AST) -> Result<OUTPUT, Error> {
+pub fn evaluate(_ast: AST) -> Result<OUTPUT, Error> {
     println!("Evaluating...");
     Ok(OUTPUT {})
 }

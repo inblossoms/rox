@@ -4,7 +4,7 @@ pub struct Tokens {}
 
 #[derive(Debug)]
 pub struct Error {}
-pub fn tokenize(source: Source) -> Result<Tokens, Error> {
+pub fn tokenize(_source: Source) -> Result<Tokens, Error> {
     println!("Tokenizing...");
     Ok(Tokens {})
 }

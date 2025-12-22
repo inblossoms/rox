@@ -13,6 +13,7 @@ type Evaluate = evaluate::Error;
 type Tokenize = tokenizer::Error;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum Error {
     Read(Read),
     Parse(Parse),
@@ -43,22 +44,24 @@ fn main() {
         run_prompt();
     } else if input_args.len() == 2 {
         match run_file(&input_args[1]) {
-            Ok(out) => {
-                println!("Success! {:?}", out);
+            Ok(_) => {
+                println!("Success!");
             }
             Err(e) => {
                 eprintln!("Work goes wrong, failed info: {:?}", e);
+                std::process::exit(1);
             }
         }
     } else {
         eprintln!("Usage: lox [script]");
+        std::process::exit(64);
     }
 }
 
 fn run_interpreter(source: Source) -> Result<(), Error> {
     let tokens = tokenizer::tokenize(source)?;
     let ast = parser::parse(tokens)?;
-    let out = evaluate::evaluate(ast)?;
+    let _out = evaluate::evaluate(ast)?;
 
     Ok(())
 }
