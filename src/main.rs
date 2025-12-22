@@ -1,4 +1,7 @@
-use std::env;
+use std::{
+    env,
+    io::{Write, stdin, stdout},
+};
 
 use crate::reader::Source;
 
@@ -72,5 +75,17 @@ fn run_file(file: &str) -> Result<(), Error> {
 }
 
 fn run_prompt() {
-    todo!()
+    loop {
+        print!("> ");
+        stdout().flush().unwrap();
+
+        let mut input = String::new();
+        stdin().read_line(&mut input).expect("Failed to read line");
+
+        let source = reader::Source { content: input };
+        match run_interpreter(source) {
+            Ok(_) => {}
+            Err(e) => eprintln!("Read line goes wrong, failed info: {:?}", e),
+        }
+    }
 }
