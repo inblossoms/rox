@@ -48,6 +48,10 @@ pub enum TokenType {
     Var,
     While,
 
+    Space,
+    Tab,
+    CarriageReturn,
+    Newline,
     Eof,
 }
 
@@ -146,18 +150,16 @@ impl Scanner {
         self.source[self.current + 1]
     }
 
-    fn skip_whitespace(&mut self) {
-        loop {
-            match self.peek() {
-                ' ' | '\t' | '\r' => {
-                    self.advance();
-                }
-                '\n' => {
-                    self.line += 1;
-                    self.advance();
-                }
-                _ => break,
+    fn add_whitespace_token(&mut self, c: char) {
+        match c {
+            ' ' => self.add_token(TokenType::Space),
+            '\t' => self.add_token(TokenType::Tab),
+            '\r' => self.add_token(TokenType::CarriageReturn),
+            '\n' => {
+                self.line += 1;
+                self.add_token(TokenType::Newline);
             }
+            _ => {} // 不处理非空白字符
         }
     }
 
@@ -190,9 +192,9 @@ impl Scanner {
             '*' => self.add_token(TokenType::Star),
             '!' => {
                 let token_type = if self.match_char('=') {
-                    TokenType::BangEqual
+                    TokenType::BangEqual // !=
                 } else {
-                    TokenType::Bang
+                    TokenType::Bang //  ！
                 };
                 self.add_token(token_type);
             }
@@ -230,18 +232,16 @@ impl Scanner {
                     self.add_token(TokenType::Slash);
                 }
             }
-            // 忽略空白符
-            ' ' | '\t' | '\r' => {}
-            '\n' => {
-                self.line += 1;
+            ' ' | '\t' | '\r' | '\n' => {
+                self.add_whitespace_token(c);
             }
             // 字符串处理
-            '"' => self.string(),
+            '"' => self.handle_string(),
             _ => {
                 if c.is_numeric() {
-                    self.number();
+                    self.handle_number();
                 } else if c.is_alphabetic() || c == '_' {
-                    self.identifier();
+                    self.handle_identifier();
                 } else {
                     // 遇到未知字符，Lox通常会报错，这里暂且忽略或打印错误
                     // eprintln!("Unexpected character: {}", c);
@@ -250,7 +250,7 @@ impl Scanner {
         }
     }
 
-    fn string(&mut self) {
+    fn handle_string(&mut self) {
         // 注意：进入此方法时，开头的 '"' 已经被 advance() 消耗了
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
@@ -275,7 +275,7 @@ impl Scanner {
         self.add_token_with_literal(TokenType::String, Literal::String(value));
     }
 
-    fn number(&mut self) {
+    fn handle_number(&mut self) {
         // 这里的逻辑：只要 peek 是数字就继续消耗
         while self.peek().is_numeric() {
             self.advance();
@@ -296,7 +296,7 @@ impl Scanner {
         self.add_token_with_literal(TokenType::Number, Literal::Number(value));
     }
 
-    fn identifier(&mut self) {
+    fn handle_identifier(&mut self) {
         while self.peek().is_alphanumeric() || self.peek() == '_' {
             self.advance();
         }
@@ -324,6 +324,7 @@ impl Scanner {
 
         self.add_token(token_type);
     }
+
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
@@ -367,23 +368,31 @@ mod tests {
 
     #[test]
     fn single_character() {
-        let mut scanner = Scanner::new("(){};,.-+*");
+        let mut scanner = Scanner::new("(){}\t\n\r ;,.-+*");
         let tokens = scanner.scan_tokens();
-        assert_eq!(
-            tokens.tokens,
-            vec![
-                Token::new(TokenType::LeftParen, "(", 1, Literal::None),
-                Token::new(TokenType::RightParen, ")", 1, Literal::None),
-                Token::new(TokenType::LeftBrace, "{", 1, Literal::None),
-                Token::new(TokenType::RightBrace, "}", 1, Literal::None),
-                Token::new(TokenType::Semicolon, ";", 1, Literal::None),
-                Token::new(TokenType::Comma, ",", 1, Literal::None),
-                Token::new(TokenType::Dot, ".", 1, Literal::None),
-                Token::new(TokenType::Minus, "-", 1, Literal::None),
-                Token::new(TokenType::Plus, "+", 1, Literal::None),
-                Token::new(TokenType::Star, "*", 1, Literal::None),
-                Token::new(TokenType::Eof, "", 1, Literal::None),
-            ]
-        )
+        let expected = vec![
+            Token::new(TokenType::LeftParen, "(", 1, Literal::None),
+            Token::new(TokenType::RightParen, ")", 1, Literal::None),
+            Token::new(TokenType::LeftBrace, "{", 1, Literal::None),
+            Token::new(TokenType::RightBrace, "}", 1, Literal::None),
+            Token::new(TokenType::Tab, "\t", 1, Literal::None),
+            Token::new(TokenType::Newline, "\n", 2, Literal::None),
+            Token::new(TokenType::CarriageReturn, "\r", 2, Literal::None),
+            Token::new(TokenType::Space, " ", 2, Literal::None),
+            Token::new(TokenType::Semicolon, ";", 2, Literal::None),
+            Token::new(TokenType::Comma, ",", 2, Literal::None),
+            Token::new(TokenType::Dot, ".", 2, Literal::None),
+            Token::new(TokenType::Minus, "-", 2, Literal::None),
+            Token::new(TokenType::Plus, "+", 2, Literal::None),
+            Token::new(TokenType::Star, "*", 2, Literal::None),
+            Token::new(TokenType::Eof, "", 2, Literal::None),
+        ];
+
+        //   if tokens.tokens != expected {
+        //       eprintln!("Expected:\n{:#?}\n", expected);
+        //       eprintln!("Actual:\n{:#?}\n", tokens.tokens);
+        //   }
+
+        assert_eq!(tokens.tokens, expected)
     }
 }
