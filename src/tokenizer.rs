@@ -228,12 +228,12 @@ impl Scanner {
                 self.add_whitespace_token(c);
             }
             // 字符串处理
-            '"' => self.handle_string(),
+            '"' => self.is_string(),
             _ => {
                 if c.is_numeric() {
-                    self.handle_number();
+                    self.is_digit();
                 } else if c.is_alphabetic() || c == '_' {
-                    self.handle_identifier();
+                    self.is_identifier();
                 } else {
                     // 遇到未知字符，Lox通常会报错，这里暂且忽略或打印错误
                     // eprintln!("Unexpected character: {}", c);
@@ -242,7 +242,7 @@ impl Scanner {
         }
     }
 
-    fn handle_string(&mut self) {
+    fn is_string(&mut self) {
         // 注意：进入此方法时，开头的 '"' 已经被 advance() 消耗了
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
@@ -267,7 +267,7 @@ impl Scanner {
         self.add_token_with_literal(TokenType::String, Literal::String(value));
     }
 
-    fn handle_number(&mut self) {
+    fn is_digit(&mut self) {
         // 这里的逻辑：只要 peek 是数字就继续消耗
         while self.peek().is_numeric() {
             self.advance();
@@ -288,7 +288,7 @@ impl Scanner {
         self.add_token_with_literal(TokenType::Number, Literal::Number(value));
     }
 
-    fn handle_identifier(&mut self) {
+    fn is_identifier(&mut self) {
         while self.peek().is_alphanumeric() || self.peek() == '_' {
             self.advance();
         }
