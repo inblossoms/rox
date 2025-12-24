@@ -116,15 +116,6 @@ impl Scanner {
         }
     }
 
-    fn consume(&mut self, expected: char) -> bool {
-        if self.is_at_end() || self.source[self.current] != expected {
-            return false;
-        }
-
-        self.current += 1;
-        true
-    }
-
     fn match_char(&mut self, expected: char) -> bool {
         if self.is_at_end() || self.source[self.current] != expected {
             return false;
