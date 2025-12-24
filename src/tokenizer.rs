@@ -48,6 +48,7 @@ pub enum TokenType {
     Var,
     While,
 
+    // whitespace
     Space,
     Tab,
     CarriageReturn,
@@ -359,7 +360,95 @@ mod tests {
 
     #[test]
     fn single_character() {
-        let mut scanner = Scanner::new("\"abc\"123.456(){}\t\n\r ;,.-+*");
+        let mut scanner = Scanner::new("(){};,.-+*");
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.tokens,
+            vec![
+                Token::new(TokenType::LeftParen, "(", 1, Literal::None),
+                Token::new(TokenType::RightParen, ")", 1, Literal::None),
+                Token::new(TokenType::LeftBrace, "{", 1, Literal::None),
+                Token::new(TokenType::RightBrace, "}", 1, Literal::None),
+                Token::new(TokenType::Semicolon, ";", 1, Literal::None),
+                Token::new(TokenType::Comma, ",", 1, Literal::None),
+                Token::new(TokenType::Dot, ".", 1, Literal::None),
+                Token::new(TokenType::Minus, "-", 1, Literal::None),
+                Token::new(TokenType::Plus, "+", 1, Literal::None),
+                Token::new(TokenType::Star, "*", 1, Literal::None),
+                Token::new(TokenType::Eof, "", 1, Literal::None),
+            ]
+        )
+    }
+
+    #[test]
+    fn two_character() {
+        let mut scanner = Scanner::new("==<>!===<<=>>");
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.tokens,
+            vec![
+                Token::new(TokenType::EqualEqual, "==", 1, Literal::None),
+                Token::new(TokenType::Less, "<", 1, Literal::None),
+                Token::new(TokenType::Greater, ">", 1, Literal::None),
+                Token::new(TokenType::BangEqual, "!=", 1, Literal::None),
+                Token::new(TokenType::EqualEqual, "==", 1, Literal::None),
+                Token::new(TokenType::Less, "<", 1, Literal::None),
+                Token::new(TokenType::LessEqual, "<=", 1, Literal::None),
+                Token::new(TokenType::Greater, ">", 1, Literal::None),
+                Token::new(TokenType::Greater, ">", 1, Literal::None),
+                Token::new(TokenType::Eof, "", 1, Literal::None)
+            ]
+        )
+    }
+
+    #[test]
+    fn keywords() {
+        let mut scanner = Scanner::new(
+            "and class else false for fun if nil or print return super this true var while",
+        );
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.tokens,
+            vec![
+                Token::new(TokenType::And, "and", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Class, "class", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Else, "else", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::False, "false", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::For, "for", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Fun, "fun", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::If, "if", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Nil, "nil", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Or, "or", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Print, "print", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Return, "return", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Super, "super", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::This, "this", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::True, "true", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::Var, "var", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
+                Token::new(TokenType::While, "while", 1, Literal::None),
+                Token::new(TokenType::Eof, "", 1, Literal::None),
+            ]
+        )
+    }
+
+    #[test]
+    fn literals() {
+        let mut scanner = Scanner::new("\"abc\"123.456");
         let tokens = scanner.scan_tokens();
         assert_eq!(
             tokens.tokens,
@@ -371,20 +460,22 @@ mod tests {
                     Literal::String("abc".to_string())
                 ),
                 Token::new(TokenType::Number, "123.456", 1, Literal::Number(123.456)),
-                Token::new(TokenType::LeftParen, "(", 1, Literal::None),
-                Token::new(TokenType::RightParen, ")", 1, Literal::None),
-                Token::new(TokenType::LeftBrace, "{", 1, Literal::None),
-                Token::new(TokenType::RightBrace, "}", 1, Literal::None),
+                Token::new(TokenType::Eof, "", 1, Literal::None),
+            ]
+        )
+    }
+
+    #[test]
+    fn whitespace() {
+        let mut scanner = Scanner::new(" \t\n\r");
+        let tokens = scanner.scan_tokens();
+        assert_eq!(
+            tokens.tokens,
+            vec![
+                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Tab, "\t", 1, Literal::None),
                 Token::new(TokenType::Newline, "\n", 2, Literal::None),
                 Token::new(TokenType::CarriageReturn, "\r", 2, Literal::None),
-                Token::new(TokenType::Space, " ", 2, Literal::None),
-                Token::new(TokenType::Semicolon, ";", 2, Literal::None),
-                Token::new(TokenType::Comma, ",", 2, Literal::None),
-                Token::new(TokenType::Dot, ".", 2, Literal::None),
-                Token::new(TokenType::Minus, "-", 2, Literal::None),
-                Token::new(TokenType::Plus, "+", 2, Literal::None),
-                Token::new(TokenType::Star, "*", 2, Literal::None),
                 Token::new(TokenType::Eof, "", 2, Literal::None),
             ]
         )
