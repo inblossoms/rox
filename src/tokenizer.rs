@@ -148,10 +148,10 @@ impl Scanner {
             '\t' => self.add_token(TokenType::Tab),
             '\r' => self.add_token(TokenType::CarriageReturn),
             '\n' => {
-                self.line += 1; // 先增加行号
+                self.line += 1; // 需要先增加行号 line num 会在 add_token_with_literal 中记录
                 self.add_token(TokenType::Newline);
             }
-            _ => {} // 不处理非空白字符
+            _ => {} // 不处理 非空白字符
         }
     }
 
@@ -168,7 +168,7 @@ impl Scanner {
     }
 
     fn scan_token(&mut self) {
-        // 核心修改：先消耗字符，推动指针前进
+        // 先消耗字符，推进指针
         let c = self.advance();
 
         match c {
@@ -236,14 +236,14 @@ impl Scanner {
                     self.is_identifier();
                 } else {
                     // 遇到未知字符，Lox通常会报错，这里暂且忽略或打印错误
-                    // eprintln!("Unexpected character: {}", c);
+                    eprintln!("Unexpected character: {}", c);
                 }
             }
         }
     }
 
     fn is_string(&mut self) {
-        // 注意：进入此方法时，开头的 '"' 已经被 advance() 消耗了
+        // Note：进入此方法时，开头的 '"' 已经被 advance() 消耗了
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -252,7 +252,7 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            // 错误：未闭合字符串
+            // 进入该判断 意味着字符串未闭合 且不存在下一个字符
             return;
         }
 
@@ -268,12 +268,12 @@ impl Scanner {
     }
 
     fn is_digit(&mut self) {
-        // 这里的逻辑：只要 peek 是数字就继续消耗
+        // 只要 peek 依旧是数字就继续消耗
         while self.peek().is_numeric() {
             self.advance();
         }
 
-        // 处理小数部分
+        // 小数部分
         if self.peek() == '.' && self.peek_next().is_numeric() {
             self.advance(); // 消耗 '.'
 
@@ -283,7 +283,7 @@ impl Scanner {
         }
 
         let text: String = self.source[self.start..self.current].iter().collect();
-        // 解析失败的情况很少见，因为我们已经检查了字符，但在 Rust 中 unwrap 需要谨慎
+        // 存在解析失败的情况很少见，因为已经检查了字符，但在 Rust 中 unwrap 需要谨慎
         let value = text.parse::<f64>().unwrap_or(0.0);
         self.add_token_with_literal(TokenType::Number, Literal::Number(value));
     }
