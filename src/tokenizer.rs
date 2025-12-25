@@ -88,7 +88,12 @@ pub struct Tokens {
 }
 
 #[derive(Debug)]
-pub struct Error {}
+pub struct Error(Vec<ScanError>);
+
+#[derive(Debug, Clone)]
+enum ScanError {
+    UnexpectedCharacter { c: char, line: usize },
+}
 
 pub struct Scanner {
     // 这里将输入的源文本转换为Vec<char>。
@@ -99,6 +104,7 @@ pub struct Scanner {
     start: usize,
     current: usize,
     line: usize,
+    errors: Vec<ScanError>,
 }
 
 impl Scanner {
@@ -109,7 +115,18 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+            errors: vec![],
         }
+    }
+
+    fn handle_error(&mut self, error: ScanError) {
+        match error {
+            ScanError::UnexpectedCharacter { c, line } => {
+                println!("[line {}] Unexpected character: {}", line, c);
+            }
+        }
+
+        self.errors.push(error);
     }
 
     fn match_char(&mut self, expected: char) -> bool {
@@ -235,8 +252,7 @@ impl Scanner {
                 } else if c.is_alphabetic() || c == '_' {
                     self.is_identifier();
                 } else {
-                    // 遇到未知字符，Lox通常会报错，这里暂且忽略或打印错误
-                    eprintln!("Unexpected character: {}", c);
+                    self.handle_error(ScanError::UnexpectedCharacter { c, line: self.line });
                 }
             }
         }
@@ -314,7 +330,7 @@ impl Scanner {
         self.current >= self.source.len()
     }
 
-    fn scan_tokens(&mut self) -> Tokens {
+    fn scan_tokens(&mut self) -> Result<Tokens, Error> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token();
@@ -323,8 +339,12 @@ impl Scanner {
         self.tokens
             .push(Token::new(TokenType::Eof, "", self.line, Literal::None));
 
-        Tokens {
-            tokens: self.tokens.clone(),
+        if self.errors.len() > 0 {
+            return Err(Error(self.errors.clone()));
+        } else {
+            return Ok(Tokens {
+                tokens: self.tokens.clone(),
+            });
         }
     }
 
@@ -337,7 +357,7 @@ impl Scanner {
 
 pub fn tokenize(source: Source) -> Result<Tokens, Error> {
     let mut scanner = Scanner::new(&source.contents);
-    let tokens = scanner.scan_tokens();
+    let tokens = scanner.scan_tokens().unwrap();
 
     Ok(tokens)
 }
