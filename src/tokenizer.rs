@@ -348,7 +348,7 @@ impl Scanner {
 }
 
 pub fn tokenize(source: Source) -> Result<Tokens, Error> {
-    let mut scanner = Scanner::new(&source.content);
+    let mut scanner = Scanner::new(&source.contents);
     let tokens = scanner.scan_tokens();
 
     Ok(tokens)

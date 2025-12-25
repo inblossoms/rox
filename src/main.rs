@@ -82,7 +82,7 @@ fn run_prompt() {
         let mut input = String::new();
         stdin().read_line(&mut input).expect("Failed to read line");
 
-        let source = reader::Source { content: input };
+        let source = reader::Source { contents: input };
         match run_interpreter(source) {
             Ok(_) => {}
             Err(e) => eprintln!("Read line goes wrong, failed info: {:?}", e),

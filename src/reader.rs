@@ -3,7 +3,7 @@ use std::{fs::read_to_string, io};
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct Source {
-    pub content: String,
+    pub contents: String,
 }
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ impl From<io::Error> for Error {
 pub fn reader_source(filename: &str) -> Result<Source, Error> {
     println!("Reading source code...");
     let content = read_to_string(filename)?;
-    Ok(Source { content })
+    Ok(Source { contents: content })
 }
 
 #[cfg(test)]
