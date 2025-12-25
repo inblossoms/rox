@@ -159,12 +159,24 @@ impl Scanner {
         self.add_token_with_literal(token_type, Literal::None);
     }
 
+    fn lexeme(&self, is_string_lexeme: bool) -> String {
+        if is_string_lexeme {
+            // 提取字符串内容（去掉首尾引号）
+            // start 指向第一个引号，current 指向闭合引号的后面
+            return self.source[self.start + 1..self.current - 1]
+                .iter()
+                .collect::<String>();
+        }
+
+        return self.source[self.start..self.current].iter().collect();
+    }
     fn add_token_with_literal(&mut self, token_type: TokenType, literal: Literal) {
-        let text = self.source[self.start..self.current]
-            .iter()
-            .collect::<String>();
-        self.tokens
-            .push(Token::new(token_type, text, self.line, literal));
+        self.tokens.push(Token::new(
+            token_type,
+            self.lexeme(false),
+            self.line,
+            literal,
+        ));
     }
 
     fn scan_token(&mut self) {
@@ -259,12 +271,7 @@ impl Scanner {
         // 消耗闭合的 '"'
         self.advance();
 
-        // 提取内容（去掉首尾引号）
-        // start 指向第一个引号，current 指向闭合引号的后面
-        let value = self.source[self.start + 1..self.current - 1]
-            .iter()
-            .collect::<String>();
-        self.add_token_with_literal(TokenType::String, Literal::String(value));
+        self.add_token_with_literal(TokenType::String, Literal::String(self.lexeme(true)));
     }
 
     fn is_digit(&mut self) {
@@ -282,9 +289,8 @@ impl Scanner {
             }
         }
 
-        let text: String = self.source[self.start..self.current].iter().collect();
         // 存在解析失败的情况很少见，因为已经检查了字符，但在 Rust 中 unwrap 需要谨慎
-        let value = text.parse::<f64>().unwrap_or(0.0);
+        let value = self.lexeme(false).parse::<f64>().unwrap_or(0.0);
         self.add_token_with_literal(TokenType::Number, Literal::Number(value));
     }
 
@@ -293,8 +299,7 @@ impl Scanner {
             self.advance();
         }
 
-        let text: String = self.source[self.start..self.current].iter().collect();
-        let token_type = match text.as_str() {
+        let token_type = match self.lexeme(false).as_str() {
             "and" => TokenType::And,
             "class" => TokenType::Class,
             "else" => TokenType::Else,
