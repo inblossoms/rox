@@ -48,11 +48,6 @@ pub enum TokenType {
     Var,
     While,
 
-    // whitespace
-    Space,
-    Tab,
-    CarriageReturn,
-    Newline,
     Eof,
 }
 
@@ -142,16 +137,9 @@ impl Scanner {
         self.source[self.current + 1]
     }
 
-    fn add_whitespace_token(&mut self, c: char) {
-        match c {
-            ' ' => self.add_token(TokenType::Space),
-            '\t' => self.add_token(TokenType::Tab),
-            '\r' => self.add_token(TokenType::CarriageReturn),
-            '\n' => {
-                self.line += 1; // 需要先增加行号 line num 会在 add_token_with_literal 中记录
-                self.add_token(TokenType::Newline);
-            }
-            _ => {} // 不处理 非空白字符
+    fn handle_whitespace(&mut self, c: char) {
+        if c == '\n' {
+            self.line += 1; // 需要先增加行号 line num 会在 add_token_with_literal 中记录
         }
     }
 
@@ -237,7 +225,7 @@ impl Scanner {
                 }
             }
             ' ' | '\t' | '\r' | '\n' => {
-                self.add_whitespace_token(c);
+                self.handle_whitespace(c);
             }
             // 字符串处理
             '"' => self.is_string(),
@@ -416,37 +404,21 @@ mod tests {
             tokens.tokens,
             vec![
                 Token::new(TokenType::Identifier, "ray", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::And, "and", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Class, "class", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Else, "else", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::False, "false", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::For, "for", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Fun, "fun", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::If, "if", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Nil, "nil", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Or, "or", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Print, "print", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Return, "return", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Super, "super", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::This, "this", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::True, "true", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Var, "var", 1, Literal::None),
-                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::While, "while", 1, Literal::None),
                 Token::new(TokenType::Eof, "", 1, Literal::None),
             ]
@@ -468,22 +440,6 @@ mod tests {
                 ),
                 Token::new(TokenType::Number, "123.456", 1, Literal::Number(123.456)),
                 Token::new(TokenType::Eof, "", 1, Literal::None),
-            ]
-        )
-    }
-
-    #[test]
-    fn whitespace() {
-        let mut scanner = Scanner::new(" \t\n\r");
-        let tokens = scanner.scan_tokens();
-        assert_eq!(
-            tokens.tokens,
-            vec![
-                Token::new(TokenType::Space, " ", 1, Literal::None),
-                Token::new(TokenType::Tab, "\t", 1, Literal::None),
-                Token::new(TokenType::Newline, "\n", 2, Literal::None),
-                Token::new(TokenType::CarriageReturn, "\r", 2, Literal::None),
-                Token::new(TokenType::Eof, "", 2, Literal::None),
             ]
         )
     }
