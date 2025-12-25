@@ -409,12 +409,14 @@ mod tests {
     #[test]
     fn keywords() {
         let mut scanner = Scanner::new(
-            "and class else false for fun if nil or print return super this true var while",
+            "ray and class else false for fun if nil or print return super this true var while",
         );
         let tokens = scanner.scan_tokens();
         assert_eq!(
             tokens.tokens,
             vec![
+                Token::new(TokenType::Identifier, "ray", 1, Literal::None),
+                Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::And, "and", 1, Literal::None),
                 Token::new(TokenType::Space, " ", 1, Literal::None),
                 Token::new(TokenType::Class, "class", 1, Literal::None),
