@@ -11,6 +11,7 @@ pub enum TokenType {
     Dot,
     Minus,
     Plus,
+    PlusEqual,
     Semicolon,
     Slash,
     Star,
@@ -196,7 +197,12 @@ impl Scanner {
             ',' => self.add_token(TokenType::Comma),
             '.' => self.add_token(TokenType::Dot),
             '-' => self.add_token(TokenType::Minus),
-            '+' => self.add_token(TokenType::Plus),
+            '+' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::PlusEqual)
+                }
+                self.add_token(TokenType::Plus)
+            }
             ';' => self.add_token(TokenType::Semicolon),
             '*' => self.add_token(TokenType::Star),
             '!' => {
@@ -376,7 +382,7 @@ mod tests {
         let mut scanner = Scanner::new("(){};,.-+*");
         let tokens = scanner.scan_tokens();
         assert_eq!(
-            tokens.tokens,
+            tokens.unwrap().tokens,
             vec![
                 Token::new(TokenType::LeftParen, "(", 1, Literal::None),
                 Token::new(TokenType::RightParen, ")", 1, Literal::None),
@@ -398,7 +404,7 @@ mod tests {
         let mut scanner = Scanner::new("==<>!===<<=>>");
         let tokens = scanner.scan_tokens();
         assert_eq!(
-            tokens.tokens,
+            tokens.unwrap().tokens,
             vec![
                 Token::new(TokenType::EqualEqual, "==", 1, Literal::None),
                 Token::new(TokenType::Less, "<", 1, Literal::None),
@@ -421,7 +427,7 @@ mod tests {
         );
         let tokens = scanner.scan_tokens();
         assert_eq!(
-            tokens.tokens,
+            tokens.unwrap().tokens,
             vec![
                 Token::new(TokenType::Identifier, "ray", 1, Literal::None),
                 Token::new(TokenType::And, "and", 1, Literal::None),
@@ -450,7 +456,7 @@ mod tests {
         let mut scanner = Scanner::new("\"abc\"123.456");
         let tokens = scanner.scan_tokens();
         assert_eq!(
-            tokens.tokens,
+            tokens.unwrap().tokens,
             vec![
                 Token::new(
                     TokenType::String,
