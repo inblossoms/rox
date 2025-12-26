@@ -5,6 +5,7 @@ use std::{
 
 use crate::reader::Source;
 
+mod ast;
 mod evaluate;
 mod parser;
 mod reader;
@@ -41,6 +42,8 @@ impl_from_error!(Error, Read, Parse, Evaluate, Tokenize);
 fn main() {
     println!("Hello, lox!");
 
+    ast::main();
+
     let input_args = env::args().collect::<Vec<_>>();
 
     if input_args.len() == 1 {
@@ -63,6 +66,9 @@ fn main() {
 
 fn run_interpreter(source: Source) -> Result<(), Error> {
     let tokens = tokenizer::tokenize(source)?;
+
+    //  println!("Tokens: {:?}", tokens);
+
     let ast = parser::parse(tokens)?;
     let _out = evaluate::evaluate(ast)?;
 
