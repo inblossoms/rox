@@ -75,6 +75,7 @@ pub enum Expr {
     Continue,
 }
 
+#[allow(dead_code)]
 impl Expr {
     fn number(value: i64) -> Expr {
         Expr::Number { value }
@@ -236,25 +237,26 @@ pub fn format_expr(expr: &Expr) -> String {
         }
         Expr::Identifier { name } => name.clone(),
         Expr::Assign { name, expr } => {
-            format!("{} = {}", name, format_expr(expr))
+            format!("{} = {};", name, format_expr(expr))
         }
         Expr::Call { name, args } => {
             let mut result = name.clone();
             result += "(";
             for (_i, arg) in args.iter().enumerate() {
                 result += &format_expr(arg);
+                result += ",";
             }
+            result.pop();
             result += ")";
             result
         }
         Expr::Function { name, args, body } => {
-            let mut result = name.clone();
+            let mut result = "fn ".to_string() + &name.clone();
             result += "(";
             for (_i, arg) in args.iter().enumerate() {
                 result += arg;
             }
-            result += ")";
-            result += "{";
+            result += ") {";
             for (_i, stmt) in body.iter().enumerate() {
                 result += &format_stmt(stmt);
             }
@@ -284,7 +286,7 @@ pub fn format_expr(expr: &Expr) -> String {
             result += &format_stmt(then_branch);
 
             if let Some(else_branch) = else_branch {
-                result += "else";
+                result += " else";
                 result += &format_stmt(else_branch);
             }
 
@@ -307,7 +309,7 @@ pub fn format_expr(expr: &Expr) -> String {
 fn format_stmt(stmt: &Expr) -> String {
     match stmt {
         Expr::Block { body } => {
-            let mut result = "{".to_string();
+            let mut result = " {".to_string();
             for (_i, stmt) in body.iter().enumerate() {
                 result += &format_stmt(stmt);
             }
@@ -338,26 +340,20 @@ mod tests {
 
     #[test]
     fn test_basic_expressions() {
-        // 测试数字
         assert_eq!(format_expr(&Expr::number(42)), "42");
 
-        // 测试字符串
         assert_eq!(format_expr(&Expr::string("hello")), "hello");
 
-        // 测试布尔值
         assert_eq!(format_expr(&Expr::boolean(true)), "true");
         assert_eq!(format_expr(&Expr::boolean(false)), "false");
 
-        // 测试nil
         assert_eq!(format_expr(&Expr::nil()), "nil");
     }
 
     #[test]
     fn test_compound_structures() {
-        // 空列表
         assert_eq!(format_expr(&Expr::list(vec![])), "()");
 
-        // 非空列表
         let list_expr = Expr::list(vec![
             Expr::number(1),
             Expr::string("two"),
@@ -365,31 +361,26 @@ mod tests {
         ]);
         assert_eq!(format_expr(&list_expr), "(1twotrue)");
 
-        // 空字典
         assert_eq!(format_expr(&Expr::dict(vec![])), "()");
 
-        // 非空字典
         let dict_expr = Expr::dict(vec![
             (Expr::string("key1"), Expr::number(100)),
             (Expr::string("key2"), Expr::boolean(false)),
         ]);
         assert_eq!(format_expr(&dict_expr), "(key1:100key2:false)");
 
-        // 元组测试
         let tuple_expr = Expr::tuple(vec![Expr::number(10), Expr::string("tuple")]);
         assert_eq!(format_expr(&tuple_expr), "(10tuple)");
     }
 
     #[test]
     fn test_operator_expressions() {
-        // 一元操作符
         let unary_expr = Expr::unary(
             Token::new(TokenType::Bang, "!", 1, Literal::None),
             Expr::boolean(true),
         );
         assert_eq!(format_expr(&unary_expr), "(! true)");
 
-        // 二元操作符
         let binary_expr = Expr::binary(
             Token::new(TokenType::Plus, "+", 1, Literal::None),
             Expr::number(5),
@@ -415,14 +406,11 @@ mod tests {
 
     #[test]
     fn test_variable_assignments() {
-        // 变量引用
         assert_eq!(format_expr(&Expr::variable("x".to_string())), "x");
 
-        // 简单赋值
         let assign_expr = Expr::assign("x".to_string(), Expr::number(10));
-        assert_eq!(format_expr(&assign_expr), "x = 10");
+        assert_eq!(format_expr(&assign_expr), "x = 10;");
 
-        // 复合赋值
         let assign_op_expr = Expr::assign_op(
             Token::new(TokenType::PlusEqual, "+=", 1, Literal::None),
             "y".to_string(),
@@ -433,7 +421,6 @@ mod tests {
 
     #[test]
     fn test_control_flow() {
-        // if 语句（带 else 分支）
         let if_expr = Expr::if_(
             Expr::binary(
                 Token::new(TokenType::Greater, ">", 1, Literal::None),
@@ -443,17 +430,15 @@ mod tests {
             Expr::block(vec![Expr::number(1)]),
             Some(Expr::block(vec![Expr::number(0)])),
         );
-        assert_eq!(format_expr(&if_expr), "if (10 > 5){1}else{0}");
+        assert_eq!(format_expr(&if_expr), "if (10 > 5) {1} else {0}");
 
-        // if 语句（无 else 分支）
         let if_no_else_expr = Expr::if_(
             Expr::boolean(true),
             Expr::block(vec![Expr::string("yes")]),
             None,
         );
-        assert_eq!(format_expr(&if_no_else_expr), "if true{yes}");
+        assert_eq!(format_expr(&if_no_else_expr), "if true {yes}");
 
-        //   while 循环
         let while_expr = Expr::while_(
             Expr::binary(
                 Token::new(TokenType::Less, "<", 1, Literal::None),
@@ -466,7 +451,7 @@ mod tests {
                 Expr::number(1),
             )]),
         );
-        assert_eq!(format_expr(&while_expr), "while (i < 10){i += 1}");
+        assert_eq!(format_expr(&while_expr), "while (i < 10) {i += 1}");
 
         // 代码块
         let block_expr = Expr::block(vec![
@@ -478,12 +463,11 @@ mod tests {
                 Expr::variable("y".to_string()),
             ),
         ]);
-        assert_eq!(format_expr(&block_expr), "{x = 1y = 2(x + y)}");
+        assert_eq!(format_expr(&block_expr), "{x = 1;y = 2;(x + y)}");
     }
 
     #[test]
     fn test_function_expressions() {
-        // 函数定义
         let func_expr = Expr::function(
             "add".to_string(),
             vec!["a".to_string(), ",".to_string(), "b".to_string()],
@@ -493,20 +477,17 @@ mod tests {
                 Expr::variable("b".to_string()),
             ))],
         );
-        assert_eq!(format_expr(&func_expr), "add(a,b){return (a + b)}");
+        assert_eq!(format_expr(&func_expr), "fn add(a,b) {return (a + b)}");
 
-        // 函数调用
         let call_expr = Expr::call("add".to_string(), vec![Expr::number(3), Expr::number(4)]);
-        assert_eq!(format_expr(&call_expr), "add(34)");
+        assert_eq!(format_expr(&call_expr), "add(3,4)");
 
-        // return 语句
         let return_expr = Expr::return_(Expr::number(42));
         assert_eq!(format_expr(&return_expr), "return 42");
     }
 
     #[test]
     fn test_edge_cases() {
-        // 空代码块
         assert_eq!(format_expr(&Expr::block(vec![])), "{}");
 
         // 深度嵌套表达式
@@ -528,7 +509,6 @@ mod tests {
         // 包含特殊字符的字符串
         assert_eq!(format_expr(&Expr::string("hello\"world")), "hello\"world");
 
-        // 长列表测试
         let long_list = Expr::list((0..10).map(|i| Expr::number(i)).collect());
         assert_eq!(format_expr(&long_list), "(0123456789)");
     }
