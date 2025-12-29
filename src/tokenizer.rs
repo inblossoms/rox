@@ -1,6 +1,6 @@
 use crate::reader::Source;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenType {
     // single character
     LeftParen,
@@ -56,6 +56,7 @@ pub enum TokenType {
 pub enum Literal {
     String(String),
     Number(f64),
+    Nil,
     None,
 }
 
@@ -94,6 +95,7 @@ pub struct Error(Vec<ScanError>);
 #[derive(Debug, Clone)]
 enum ScanError {
     UnexpectedCharacter { c: char, line: usize },
+    UnterminatedString { line: usize },
 }
 
 pub struct Scanner {
@@ -124,6 +126,9 @@ impl Scanner {
         match error {
             ScanError::UnexpectedCharacter { c, line } => {
                 println!("[line {}] Unexpected character: {}", line, c);
+            }
+            ScanError::UnterminatedString { line } => {
+                println!("[line {}] Unterminated string", line);
             }
         }
 
