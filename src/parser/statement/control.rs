@@ -1,7 +1,7 @@
 use crate::{
     ast::Expr,
     parser::{error::Error, parse::ParseHelper},
-    tokenizer::{Token, TokenType, Tokens},
+    tokenizer::TokenType,
 };
 
 impl ParseHelper {
