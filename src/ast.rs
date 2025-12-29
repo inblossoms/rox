@@ -1,8 +1,32 @@
-use crate::tokenizer::*;
+#[derive(Debug)]
+pub struct AST {
+    pub top: Option<Expr>,
+}
 
+#[derive(Debug, PartialEq)]
+#[allow(dead_code)]
+pub enum Operator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    Equal,
+    NotEqual,
+    Not,
+    Assign,
+    AddAssign,
+    Or,
+    And,
+}
+
+#[derive(Debug)]
 pub enum Expr {
     Number {
-        value: i64,
+        value: String,
     },
     String {
         value: String,
@@ -24,17 +48,17 @@ pub enum Expr {
         name: String,
     },
     AssignOp {
-        op: Token,
+        op: Operator,
         name: String,
         expr: Box<Expr>,
     },
     Binary {
-        op: Token,
+        op: Operator,
         left: Box<Expr>,
         right: Box<Expr>,
     },
     Unary {
-        op: Token,
+        op: Operator,
         expr: Box<Expr>,
     },
     Grouping {
@@ -77,8 +101,10 @@ pub enum Expr {
 
 #[allow(dead_code)]
 impl Expr {
-    fn number(value: i64) -> Expr {
-        Expr::Number { value }
+    fn number(value: impl Into<String>) -> Expr {
+        Expr::Number {
+            value: value.into(),
+        }
     }
     fn string(value: impl Into<String>) -> Expr {
         Expr::String {
@@ -103,21 +129,21 @@ impl Expr {
     fn variable(name: String) -> Expr {
         Expr::Variable { name }
     }
-    fn assign_op(op: Token, name: String, expr: Expr) -> Expr {
+    fn assign_op(op: Operator, name: String, expr: Expr) -> Expr {
         Expr::AssignOp {
             op,
             name,
             expr: expr.into(),
         }
     }
-    fn binary(op: Token, left: Expr, right: Expr) -> Expr {
+    fn binary(op: Operator, left: Expr, right: Expr) -> Expr {
         Expr::Binary {
             op,
             left: left.into(),
             right: right.into(),
         }
     }
-    fn unary(op: Token, expr: Expr) -> Expr {
+    fn unary(op: Operator, expr: Expr) -> Expr {
         Expr::Unary {
             op,
             expr: expr.into(),
@@ -219,18 +245,18 @@ pub fn format_expr(expr: &Expr) -> String {
         }
         Expr::Variable { name } => name.clone(),
         Expr::AssignOp { op, name, expr } => {
-            format!("{} {} {}", name, op.lexeme, format_expr(expr))
+            format!("{} {} {}", name, format_operator(&op), format_expr(expr))
         }
         Expr::Binary { op, left, right } => {
             format!(
                 "({} {} {})",
                 format_expr(left),
-                op.lexeme,
+                format_operator(&op),
                 format_expr(right)
             )
         }
         Expr::Unary { op, expr } => {
-            format!("({} {})", op.lexeme, format_expr(expr))
+            format!("({} {})", format_operator(&op), format_expr(expr))
         }
         Expr::Grouping { expr } => {
             format!("(group {})", format_expr(expr))
@@ -321,14 +347,31 @@ fn format_stmt(stmt: &Expr) -> String {
     }
 }
 
+fn format_operator(op: &Operator) -> &'static str {
+    match op {
+        Operator::Add => "+",
+        Operator::Sub => "-",
+        Operator::Mul => "*",
+        Operator::Div => "/",
+        Operator::Assign => "=",
+        Operator::AddAssign => "+=",
+        Operator::Not => "!",
+        Operator::NotEqual => "!=",
+        Operator::Equal => "==",
+        Operator::Greater => ">",
+        Operator::GreaterEqual => ">=",
+        Operator::Less => "<",
+        Operator::LessEqual => "<=",
+        Operator::And => "&&",
+        Operator::Or => "||",
+    }
+}
+
 pub fn main() {
     let expression = Expr::binary(
-        Token::new(TokenType::Star, "*", 1, Literal::None),
-        Expr::unary(
-            Token::new(TokenType::Minus, "-", 1, Literal::None),
-            Expr::number(123),
-        ),
-        Expr::grouping(Expr::number(234)),
+        Operator::Mul,
+        Expr::unary(Operator::Sub, Expr::number("123")),
+        Expr::grouping(Expr::number("234")),
     );
 
     println!("{}", format_expr(&expression));
@@ -340,7 +383,7 @@ mod tests {
 
     #[test]
     fn test_basic_expressions() {
-        assert_eq!(format_expr(&Expr::number(42)), "42");
+        assert_eq!(format_expr(&Expr::number("42")), "42");
 
         assert_eq!(format_expr(&Expr::string("hello")), "hello");
 
@@ -355,7 +398,7 @@ mod tests {
         assert_eq!(format_expr(&Expr::list(vec![])), "()");
 
         let list_expr = Expr::list(vec![
-            Expr::number(1),
+            Expr::number("1"),
             Expr::string("two"),
             Expr::boolean(true),
         ]);
@@ -364,42 +407,32 @@ mod tests {
         assert_eq!(format_expr(&Expr::dict(vec![])), "()");
 
         let dict_expr = Expr::dict(vec![
-            (Expr::string("key1"), Expr::number(100)),
+            (Expr::string("key1"), Expr::number("100")),
             (Expr::string("key2"), Expr::boolean(false)),
         ]);
         assert_eq!(format_expr(&dict_expr), "(key1:100key2:false)");
 
-        let tuple_expr = Expr::tuple(vec![Expr::number(10), Expr::string("tuple")]);
+        let tuple_expr = Expr::tuple(vec![Expr::number("10"), Expr::string("tuple")]);
         assert_eq!(format_expr(&tuple_expr), "(10tuple)");
     }
 
     #[test]
     fn test_operator_expressions() {
-        let unary_expr = Expr::unary(
-            Token::new(TokenType::Bang, "!", 1, Literal::None),
-            Expr::boolean(true),
-        );
+        let unary_expr = Expr::unary(Operator::Not, Expr::boolean(true));
         assert_eq!(format_expr(&unary_expr), "(! true)");
 
-        let binary_expr = Expr::binary(
-            Token::new(TokenType::Plus, "+", 1, Literal::None),
-            Expr::number(5),
-            Expr::number(7),
-        );
+        let binary_expr = Expr::binary(Operator::Add, Expr::number("5"), Expr::number("7"));
         assert_eq!(format_expr(&binary_expr), "(5 + 7)");
 
         // 分组表达式
-        let grouping_expr = Expr::grouping(Expr::number(42));
+        let grouping_expr = Expr::grouping(Expr::number("42"));
         assert_eq!(format_expr(&grouping_expr), "(group 42)");
 
         // 嵌套操作
         let nested_expr = Expr::binary(
-            Token::new(TokenType::Star, "*", 1, Literal::None),
-            Expr::unary(
-                Token::new(TokenType::Minus, "-", 1, Literal::None),
-                Expr::number(123),
-            ),
-            Expr::grouping(Expr::number(234)),
+            Operator::Mul,
+            Expr::unary(Operator::Sub, Expr::number("123")),
+            Expr::grouping(Expr::number("234")),
         );
         assert_eq!(format_expr(&nested_expr), "((- 123) * (group 234))");
     }
@@ -408,27 +441,20 @@ mod tests {
     fn test_variable_assignments() {
         assert_eq!(format_expr(&Expr::variable("x".to_string())), "x");
 
-        let assign_expr = Expr::assign("x".to_string(), Expr::number(10));
+        let assign_expr = Expr::assign("x".to_string(), Expr::number("10"));
         assert_eq!(format_expr(&assign_expr), "x = 10;");
 
-        let assign_op_expr = Expr::assign_op(
-            Token::new(TokenType::PlusEqual, "+=", 1, Literal::None),
-            "y".to_string(),
-            Expr::number(5),
-        );
+        let assign_op_expr =
+            Expr::assign_op(Operator::AddAssign, "y".to_string(), Expr::number("5"));
         assert_eq!(format_expr(&assign_op_expr), "y += 5");
     }
 
     #[test]
     fn test_control_flow() {
         let if_expr = Expr::if_(
-            Expr::binary(
-                Token::new(TokenType::Greater, ">", 1, Literal::None),
-                Expr::number(10),
-                Expr::number(5),
-            ),
-            Expr::block(vec![Expr::number(1)]),
-            Some(Expr::block(vec![Expr::number(0)])),
+            Expr::binary(Operator::Greater, Expr::number("10"), Expr::number("5")),
+            Expr::block(vec![Expr::number("1")]),
+            Some(Expr::block(vec![Expr::number("0")])),
         );
         assert_eq!(format_expr(&if_expr), "if (10 > 5) {1} else {0}");
 
@@ -441,24 +467,24 @@ mod tests {
 
         let while_expr = Expr::while_(
             Expr::binary(
-                Token::new(TokenType::Less, "<", 1, Literal::None),
+                Operator::Less,
                 Expr::variable("i".to_string()),
-                Expr::number(10),
+                Expr::number("10"),
             ),
             Expr::block(vec![Expr::assign_op(
-                Token::new(TokenType::PlusEqual, "+=", 1, Literal::None),
+                Operator::AddAssign,
                 "i".to_string(),
-                Expr::number(1),
+                Expr::number("1"),
             )]),
         );
         assert_eq!(format_expr(&while_expr), "while (i < 10) {i += 1}");
 
         // 代码块
         let block_expr = Expr::block(vec![
-            Expr::assign("x".to_string(), Expr::number(1)),
-            Expr::assign("y".to_string(), Expr::number(2)),
+            Expr::assign("x".to_string(), Expr::number("1")),
+            Expr::assign("y".to_string(), Expr::number("2")),
             Expr::binary(
-                Token::new(TokenType::Plus, "+", 1, Literal::None),
+                Operator::Add,
                 Expr::variable("x".to_string()),
                 Expr::variable("y".to_string()),
             ),
@@ -472,17 +498,20 @@ mod tests {
             "add".to_string(),
             vec!["a".to_string(), ",".to_string(), "b".to_string()],
             vec![Expr::return_(Expr::binary(
-                Token::new(TokenType::Plus, "+", 1, Literal::None),
+                Operator::Add,
                 Expr::variable("a".to_string()),
                 Expr::variable("b".to_string()),
             ))],
         );
         assert_eq!(format_expr(&func_expr), "fn add(a,b) {return (a + b)}");
 
-        let call_expr = Expr::call("add".to_string(), vec![Expr::number(3), Expr::number(4)]);
+        let call_expr = Expr::call(
+            "add".to_string(),
+            vec![Expr::number("3"), Expr::number("4")],
+        );
         assert_eq!(format_expr(&call_expr), "add(3,4)");
 
-        let return_expr = Expr::return_(Expr::number(42));
+        let return_expr = Expr::return_(Expr::number("42"));
         assert_eq!(format_expr(&return_expr), "return 42");
     }
 
@@ -492,24 +521,16 @@ mod tests {
 
         // 深度嵌套表达式
         let nested_expr = Expr::binary(
-            Token::new(TokenType::Star, "*", 1, Literal::None),
-            Expr::binary(
-                Token::new(TokenType::Plus, "+", 1, Literal::None),
-                Expr::number(1),
-                Expr::number(2),
-            ),
-            Expr::binary(
-                Token::new(TokenType::Minus, "-", 1, Literal::None),
-                Expr::number(3),
-                Expr::number(4),
-            ),
+            Operator::Mul,
+            Expr::binary(Operator::Add, Expr::number("1"), Expr::number("2")),
+            Expr::binary(Operator::Sub, Expr::number("3"), Expr::number("4")),
         );
         assert_eq!(format_expr(&nested_expr), "((1 + 2) * (3 - 4))");
 
         // 包含特殊字符的字符串
         assert_eq!(format_expr(&Expr::string("hello\"world")), "hello\"world");
 
-        let long_list = Expr::list((0..10).map(|i| Expr::number(i)).collect());
+        let long_list = Expr::list((0..10).map(|i| Expr::number(&i.to_string())).collect());
         assert_eq!(format_expr(&long_list), "(0123456789)");
     }
 }
