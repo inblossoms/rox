@@ -1,12 +1,12 @@
-use crate::parser::AST;
+use crate::ast::AST;
 
-pub struct OUTPUT {}
+pub struct Output {}
 
 #[derive(Debug)]
 pub struct Error {}
-pub fn evaluate(_ast: AST) -> Result<OUTPUT, Error> {
+pub fn evaluate(_ast: AST) -> Result<Output, Error> {
     println!("Evaluating...");
-    Ok(OUTPUT {})
+    Ok(Output {})
 }
 
 #[cfg(test)]
