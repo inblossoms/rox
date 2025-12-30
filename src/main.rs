@@ -48,7 +48,7 @@ macro_rules! impl_from_error {
 impl_from_error!(Error, Read, Parse, Evaluate, Tokenize, Runtime);
 
 fn main() {
-    println!("Hello, lox!");
+    println!("Hello, rox!");
 
     //  ast::main();
 
@@ -67,7 +67,7 @@ fn main() {
             }
         }
     } else {
-        eprintln!("Usage: lox [script]");
+        eprintln!("Usage: rox [script]");
         std::process::exit(64);
     }
 }
