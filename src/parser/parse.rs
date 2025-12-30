@@ -90,19 +90,63 @@ impl ParseHelper {
     pub fn parse_assignment(&mut self) -> Result<Expr, Error> {
         let expr = self.parse_or()?;
 
-        if self.match_token(&[TokenType::Equal]) {
-            let value = self.parse_assignment()?; // 递归，支持 a = b = 1
+        if self.match_token(&[
+            TokenType::Equal,
+            TokenType::PlusEqual,
+            TokenType::MinusEqual,
+            TokenType::StarEqual,
+            TokenType::SlashEqual,
+        ]) {
+            // 先保存操作符 Token，parse_assignment() 会消耗新的 Token，
+            // 导致 self.previous() 变成右值表达式的最后一个 Token，而不是操作符。
+            let operator_token = self.previous().clone();
+
+            let value = self.parse_assignment()?;
 
             // 检查左值是否合法
             if let Expr::Variable { name } = expr {
-                return Ok(Expr::Assign {
-                    name,
-                    expr: Box::new(value),
-                });
+                // 使用保存的 operator_token 进行匹配
+                match operator_token.token_type {
+                    TokenType::Equal => {
+                        return Ok(Expr::Assign {
+                            name,
+                            expr: Box::new(value),
+                        });
+                    }
+                    TokenType::PlusEqual => {
+                        return Ok(Expr::AssignOp {
+                            op: Operator::Add,
+                            name,
+                            expr: Box::new(value),
+                        });
+                    }
+                    TokenType::MinusEqual => {
+                        return Ok(Expr::AssignOp {
+                            op: Operator::Sub,
+                            name,
+                            expr: Box::new(value),
+                        });
+                    }
+                    TokenType::StarEqual => {
+                        return Ok(Expr::AssignOp {
+                            op: Operator::Mul,
+                            name,
+                            expr: Box::new(value),
+                        });
+                    }
+                    TokenType::SlashEqual => {
+                        return Ok(Expr::AssignOp {
+                            op: Operator::Div,
+                            name,
+                            expr: Box::new(value),
+                        });
+                    }
+                    _ => {}
+                }
             }
 
-            // 修复逻辑错误：显式报错无效的赋值目标
-            return Err(self.error(self.previous(), "Invalid assignment target."));
+            // 报错时使用 operator_token 定位，指向操作符位置更准确
+            return Err(self.error(&operator_token, "Invalid assignment target."));
         }
 
         Ok(expr)

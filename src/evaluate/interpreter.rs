@@ -365,7 +365,7 @@ impl Interpreter {
                 // 抛出 Return 信号，中断执行流
                 Err(RuntimeError::Return(value))
             }
-            Expr::Var { name, initializer } => {
+            Expr::VarDecl { name, initializer } => {
                 let value = self.evaluate(initializer)?;
                 // 【严谨】使用 define，强制在【当前】环境插入，绝不触碰父环境
                 // 这就实现了 Shadowing (遮蔽)
@@ -664,7 +664,7 @@ mod tests {
         let mut interpreter = create_test_interpreter();
         
         // Define a variable
-        let assign_expr = Expr::Var {
+        let assign_expr = Expr::VarDecl {
             name: "x".to_string(),
             initializer: Box::new(Expr::Number { value: "42".to_string() }),
         };
@@ -681,14 +681,14 @@ mod tests {
         let mut interpreter = create_test_interpreter();
         
         // Define and assign
-        let assign_expr = Expr::Var {
+        let assign_expr = Expr::VarDecl {
             name: "x".to_string(),
             initializer: Box::new(Expr::Number { value: "42".to_string() }),
         };
         interpreter.evaluate(&assign_expr).unwrap();
         
         // Reassign
-        let reassign_expr = Expr::Var {
+        let reassign_expr = Expr::VarDecl {
             name: "x".to_string(),
             initializer: Box::new(Expr::Number { value: "100".to_string() }),
         };
@@ -714,14 +714,14 @@ mod tests {
         let mut interpreter = create_test_interpreter();
         
         // Define variable in outer scope
-        let outer_assign = Expr::Var {
+        let outer_assign = Expr::VarDecl {
             name: "x".to_string(),
             initializer: Box::new(Expr::Number { value: "10".to_string() }),
         };
         interpreter.evaluate(&outer_assign).unwrap();
         
         // Create a block with inner scope
-        let inner_assign = Expr::Var {
+        let inner_assign = Expr::VarDecl {
             name: "x".to_string(), // Same name as outer scope
             initializer: Box::new(Expr::Number { value: "20".to_string() }),
         };
@@ -766,7 +766,7 @@ mod tests {
         
         // Simple counter test: while x < 5, x = x + 1
         // First set x = 0
-        let init = Expr::Var {
+        let init = Expr::VarDecl {
             name: "x".to_string(),
             initializer: Box::new(Expr::Number { value: "0".to_string() }),
         };
@@ -830,7 +830,7 @@ mod tests {
         let mut interpreter = create_test_interpreter();
         
         // Define outer variable
-        let outer_def = Expr::Var {
+        let outer_def = Expr::VarDecl {
             name: "x".to_string(),
             initializer: Box::new(Expr::Number { value: "10".to_string() }),
         };
@@ -946,7 +946,7 @@ mod tests {
         let mut interpreter = create_test_interpreter();
         
         // Set x = 10
-        let init = Expr::Var {
+        let init = Expr::VarDecl {
             name: "x".to_string(),
             initializer: Box::new(Expr::Number { value: "10".to_string() }),
         };

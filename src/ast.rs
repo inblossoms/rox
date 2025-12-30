@@ -1,10 +1,10 @@
+#![allow(dead_code)]
 #[derive(Debug)]
 pub struct AST {
     pub top: Option<Expr>,
 }
 
-#[derive(Debug, PartialEq)]
-#[allow(dead_code)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     Add,
     Sub,
@@ -23,7 +23,7 @@ pub enum Operator {
     And,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Number {
         value: String,
@@ -66,6 +66,10 @@ pub enum Expr {
     },
     Identifier {
         name: String,
+    },
+    VarDecl {
+        name: String,
+        initializer: Box<Expr>,
     },
     Assign {
         name: String,
@@ -318,7 +322,6 @@ pub fn format_expr(expr: &Expr) -> String {
 
             result
         }
-
         Expr::While { condition, body } => {
             let mut result = "while ".to_string();
 
@@ -327,7 +330,15 @@ pub fn format_expr(expr: &Expr) -> String {
 
             result
         }
+        Expr::VarDecl { name, initializer } => {
+            let mut result = "var ".to_string();
 
+            result += name;
+            result += " = ";
+            result += &format_expr(initializer);
+
+            result
+        }
         Expr::Break => "break".to_string(),
         Expr::Continue => "continue".to_string(),
     }
@@ -365,16 +376,6 @@ fn format_operator(op: &Operator) -> &'static str {
         Operator::And => "&&",
         Operator::Or => "||",
     }
-}
-
-pub fn main() {
-    let expression = Expr::binary(
-        Operator::Mul,
-        Expr::unary(Operator::Sub, Expr::number("123")),
-        Expr::grouping(Expr::number("234")),
-    );
-
-    println!("{}", format_expr(&expression));
 }
 
 #[cfg(test)]

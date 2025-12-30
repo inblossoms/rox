@@ -20,9 +20,9 @@ impl ParseHelper {
             "Expect ';' after variable declaration.",
         )?;
 
-        Ok(Expr::Assign {
+        Ok(Expr::VarDecl {
             name,
-            expr: Box::new(initializer),
+            initializer: Box::new(initializer),
         })
     }
 

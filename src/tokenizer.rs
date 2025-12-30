@@ -12,6 +12,9 @@ pub enum TokenType {
     Minus,
     Plus,
     PlusEqual,
+    MinusEqual,
+    SlashEqual,
+    StarEqual,
     Semicolon,
     Slash,
     Star,
@@ -201,15 +204,32 @@ impl Scanner {
             '}' => self.add_token(TokenType::RightBrace),
             ',' => self.add_token(TokenType::Comma),
             '.' => self.add_token(TokenType::Dot),
-            '-' => self.add_token(TokenType::Minus),
+            '-' => {
+                let token_type = if self.match_char('=') {
+                    TokenType::MinusEqual
+                } else {
+                    TokenType::Minus
+                };
+                self.add_token(token_type)
+            }
             '+' => {
-                if self.match_char('=') {
-                    self.add_token(TokenType::PlusEqual)
-                }
-                self.add_token(TokenType::Plus)
+                let token_type = if self.match_char('=') {
+                    TokenType::PlusEqual
+                } else {
+                    TokenType::Plus
+                };
+                self.add_token(token_type)
             }
             ';' => self.add_token(TokenType::Semicolon),
-            '*' => self.add_token(TokenType::Star),
+            '*' => {
+                let token_type = if self.match_char('=') {
+                    TokenType::StarEqual
+                } else {
+                    TokenType::Star
+                };
+
+                self.add_token(token_type);
+            }
             '!' => {
                 let token_type = if self.match_char('=') {
                     TokenType::BangEqual // !=
@@ -248,6 +268,12 @@ impl Scanner {
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
+                } else if self.match_char('*') {
+                    while self.peek() != '*' || self.peek_next() != '/' && !self.is_at_end() {
+                        self.advance();
+                    }
+                } else if self.match_char('=') {
+                    self.add_token(TokenType::SlashEqual);
                 } else {
                     self.add_token(TokenType::Slash);
                 }
