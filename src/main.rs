@@ -50,16 +50,15 @@ impl_from_error!(Error, Read, Parse, Evaluate, Tokenize, Runtime);
 fn main() {
     println!("Hello, rox!");
 
-    //  ast::main();
-
     let input_args = env::args().collect::<Vec<_>>();
+    let mut interpreter = Interpreter::new(); // 需要保证解释器在解析过程中的上下文一致性，所以将其提取到上层
 
     if input_args.len() == 1 {
-        run_prompt();
+        run_prompt(&mut interpreter);
     } else if input_args.len() == 2 {
-        match run_file(&input_args[1]) {
-            Ok(_) => {
-                println!("Success!");
+        match run_file(&input_args[1], &mut interpreter) {
+            Ok(r) => {
+                println!("Work goes done！\nReturn: {r:?}");
             }
             Err(e) => {
                 eprintln!("Work goes wrong, failed info: {:?}", e);
@@ -72,27 +71,12 @@ fn main() {
     }
 }
 
-fn run_interpreter(source: Source) -> Result<Value, Error> {
-    let tokens = tokenizer::tokenize(source)?;
-
-    println!("Tokens: {:#?}", tokens);
-
-    let ast = parser::parse(tokens)?;
-
-    let mut interpreter = Interpreter::new();
-    let out = interpreter.interpret(ast)?;
-
-    Ok(out)
-}
-
-fn run_file(file: &str) -> Result<Value, Error> {
+fn run_file(file: &str, interpreter: &mut Interpreter) -> Result<Value, Error> {
     let source = reader::reader_source(file)?;
-    run_interpreter(source)
+    run_interpreter_with_state(source, interpreter)
 }
 
-fn run_prompt() {
-    let mut interpreter = Interpreter::new(); // 在循环外创建解释器实例
-
+fn run_prompt(interpreter: &mut Interpreter) {
     loop {
         print!("> ");
         stdout().flush().unwrap();
@@ -101,8 +85,9 @@ fn run_prompt() {
         stdin().read_line(&mut input).expect("Failed to read line");
 
         let source = reader::Source { contents: input };
-        match run_interpreter_with_state(source, &mut interpreter) {
-            // 使用带状态的函数
+        // 由于 interpreter 通过外部传入，所以不需要担心命令行输入时解析出的 code 上下文不一致导致的不期望结果
+        // 当 interpreter 在 loop 中被运行创建，那么每次运行都会创建一个新的上下文
+        match run_interpreter_with_state(source, interpreter) {
             Ok(r) => {
                 if r != Value::Nil {
                     println!("{:?}", r);
