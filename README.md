@@ -6,7 +6,10 @@ It demonstrates advanced Rust patterns, including ownership-safe environment sha
 
 ### Key Features:
 
-**Strict Type Safety:** Adopting a 'Rust-like' strong typing system.
-**Lexical Scoping:** Implements full closure support.
-**Rich Data Types:** Built-in support for Scalars, Strings, Lists, Tuples, and Dictionaries.
-**Control Flow:** Comprehensive support for loops, branching, and jump statements.
+-  **Strict Type Safety:** Adopting a 'Rust-like' strong typing system.
+
+-  **Lexical Scoping:** Implements full closure support.
+
+-  **Rich Data Types:** Built-in support for Scalars, Strings, Lists, Tuples, and Dictionaries.
+
+-  **Control Flow:** Comprehensive support for loops, branching, and jump statements.
