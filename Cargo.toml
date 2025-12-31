@@ -2,5 +2,5 @@
 name = "rox"
 version = "0.1.0"
 edition = "2024"
-
-[dependencies]
+authors = ["Ray <https://github.com/inblossoms/rox>"]
+description = "A simple programming language interpreter written in Rust, inspired by Lox from the Crafting Interpreters book."
