@@ -282,9 +282,7 @@ impl Scanner {
                         self.advance();
                     }
                 } else if self.match_char('*') {
-                    while self.peek() != '*' || self.peek_next() != '/' && !self.is_at_end() {
-                        self.advance();
-                    }
+                    self.scan_block_comment();
                 } else if self.match_char('=') {
                     self.add_token(TokenType::SlashEqual);
                 } else {
@@ -420,6 +418,22 @@ impl Scanner {
             });
         }
     }
+    // 处理多行注释
+    fn scan_block_comment(&mut self) {
+        while !self.is_at_end() {
+            if self.peek() == '*' && self.peek_next() == '/' {
+                self.advance(); // 消耗 *
+                self.advance(); // 消耗 /
+                return;
+            }
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+        // 可选：如果到了文件末尾还没闭合，可以报错 "Unterminated comment"
+        //   self.error_reporter.error(self.line, "Unterminated comment.");
+    }
 
     /// 消耗一个字符并返回该字符
     fn advance(&mut self) -> char {
@@ -438,104 +452,5 @@ pub fn tokenize(source: Source) -> Result<Tokens, Error> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        assert_eq!((), ());
-    }
-
-    #[test]
-    fn single_character() {
-        let mut scanner = Scanner::new("(){};,.-+*");
-        let tokens = scanner.scan_tokens();
-        assert_eq!(
-            tokens.unwrap().tokens,
-            vec![
-                Token::new(TokenType::LeftParen, "(", 1, Literal::None),
-                Token::new(TokenType::RightParen, ")", 1, Literal::None),
-                Token::new(TokenType::LeftBrace, "{", 1, Literal::None),
-                Token::new(TokenType::RightBrace, "}", 1, Literal::None),
-                Token::new(TokenType::Semicolon, ";", 1, Literal::None),
-                Token::new(TokenType::Comma, ",", 1, Literal::None),
-                Token::new(TokenType::Dot, ".", 1, Literal::None),
-                Token::new(TokenType::Minus, "-", 1, Literal::None),
-                Token::new(TokenType::Plus, "+", 1, Literal::None),
-                Token::new(TokenType::Star, "*", 1, Literal::None),
-                Token::new(TokenType::Eof, "", 1, Literal::None),
-            ]
-        )
-    }
-
-    #[test]
-    fn two_character() {
-        let mut scanner = Scanner::new("==<>!===<<=>>");
-        let tokens = scanner.scan_tokens();
-        assert_eq!(
-            tokens.unwrap().tokens,
-            vec![
-                Token::new(TokenType::EqualEqual, "==", 1, Literal::None),
-                Token::new(TokenType::Less, "<", 1, Literal::None),
-                Token::new(TokenType::Greater, ">", 1, Literal::None),
-                Token::new(TokenType::BangEqual, "!=", 1, Literal::None),
-                Token::new(TokenType::EqualEqual, "==", 1, Literal::None),
-                Token::new(TokenType::Less, "<", 1, Literal::None),
-                Token::new(TokenType::LessEqual, "<=", 1, Literal::None),
-                Token::new(TokenType::Greater, ">", 1, Literal::None),
-                Token::new(TokenType::Greater, ">", 1, Literal::None),
-                Token::new(TokenType::Eof, "", 1, Literal::None)
-            ]
-        )
-    }
-
-    #[test]
-    fn keywords() {
-        let mut scanner = Scanner::new(
-            "ray and class else false for fun if nil or print return super this true var while",
-        );
-        let tokens = scanner.scan_tokens();
-        assert_eq!(
-            tokens.unwrap().tokens,
-            vec![
-                Token::new(TokenType::Identifier, "ray", 1, Literal::None),
-                Token::new(TokenType::BitAnd, "and", 1, Literal::None),
-                Token::new(TokenType::Class, "class", 1, Literal::None),
-                Token::new(TokenType::Else, "else", 1, Literal::None),
-                Token::new(TokenType::False, "false", 1, Literal::None),
-                Token::new(TokenType::For, "for", 1, Literal::None),
-                Token::new(TokenType::Fun, "fun", 1, Literal::None),
-                Token::new(TokenType::If, "if", 1, Literal::None),
-                Token::new(TokenType::Nil, "nil", 1, Literal::None),
-                Token::new(TokenType::BitOr, "or", 1, Literal::None),
-                Token::new(TokenType::Print, "print", 1, Literal::None),
-                Token::new(TokenType::Return, "return", 1, Literal::None),
-                Token::new(TokenType::Super, "super", 1, Literal::None),
-                Token::new(TokenType::This, "this", 1, Literal::None),
-                Token::new(TokenType::True, "true", 1, Literal::None),
-                Token::new(TokenType::Var, "var", 1, Literal::None),
-                Token::new(TokenType::While, "while", 1, Literal::None),
-                Token::new(TokenType::Eof, "", 1, Literal::None),
-            ]
-        )
-    }
-
-    #[test]
-    fn literals() {
-        let mut scanner = Scanner::new("\"abc\"123.456");
-        let tokens = scanner.scan_tokens();
-        assert_eq!(
-            tokens.unwrap().tokens,
-            vec![
-                Token::new(
-                    TokenType::String,
-                    "\"abc\"",
-                    1,
-                    Literal::String("abc".to_string())
-                ),
-                Token::new(TokenType::Number, "123.456", 1, Literal::Number(123.456)),
-                Token::new(TokenType::Eof, "", 1, Literal::None),
-            ]
-        )
-    }
-}
+#[path = "tests/tokenizer/mod.rs"]
+mod tokenizer_tests;
