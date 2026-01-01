@@ -384,7 +384,6 @@ impl Interpreter {
     /// 
     /// # 返回值
     /// * `Ok(Value)` - 代码块中最后一条语句的执行结果
-    /// * `Err(RuntimeError)` - 执行过程中发生的错误
     fn execute_block(
         &mut self,
         statements: &[Expr],
@@ -408,7 +407,6 @@ impl Interpreter {
     /// 
     /// # 返回值
     /// * `Ok(Value)` - 代码块中最后一条语句的执行结果
-    /// * `Err(RuntimeError)` - 执行过程中发生的错误
     fn execute_block_internal(&mut self, statements: &[Expr]) -> Result<Value, RuntimeError> {
         let mut result = Value::Nil;
         for stmt in statements {
@@ -424,10 +422,6 @@ impl Interpreter {
     /// * `left` - 左侧表达式
     /// * `op` - 逻辑运算符 (AND 或 OR)
     /// * `right` - 右侧表达式
-    /// 
-    /// # 返回值
-    /// * `Ok(Value)` - 逻辑运算结果
-    /// * `Err(RuntimeError)` - 求值过程中发生的错误
     fn evaluate_logical(
         &mut self,
         left: &Expr,
@@ -483,7 +477,6 @@ impl Interpreter {
     /// 
     /// # 返回值
     /// * `Ok(Value)` - 连接或相加的结果
-    /// * `Err(RuntimeError)` - 类型错误
     fn add_values(&self, left: Value, right: Value) -> Result<Value, RuntimeError> {
             match (left, right) {
                 (Value::Number(n1), Value::Number(n2)) => Ok(Value::Number(n1 + n2)),
@@ -523,10 +516,6 @@ impl Interpreter {
     /// 
     /// # 参数
     /// * `elements` - 表达式元素切片
-    /// 
-    /// # 返回值
-    /// * `Ok(Vec<Value>)` - 求值后的值向量
-    /// * `Err(RuntimeError)` - 求值过程中发生的错误
     fn evaluate_elements(&mut self, elements: &[Expr]) -> Result<Vec<Value>, RuntimeError> {
         let mut values = Vec::new();
         for element in elements {
@@ -551,11 +540,10 @@ impl Interpreter {
     where
         F: Fn(i64, i64) -> i64,
     {
-        // 1. 先求值
         let l_val = self.evaluate(left_expr)?;
         let r_val = self.evaluate(right_expr)?;
 
-        // 2. 检查类型并转换
+        // 检查类型并转换
         match (l_val, r_val) {
             (Value::Number(n1), Value::Number(n2)) => {
                 // f64 不支持位运算，必须转为 i64。
