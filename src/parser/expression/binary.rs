@@ -52,8 +52,8 @@ impl ParseHelper {
         Ok(expr)
     }
 
-    // 按位或 (|)
-    // 优先级：低于 &，高于 comparison
+    /// 按位或 (|)
+    /// 优先级：低于 &，高于 comparison
     pub fn parse_bitwise_or(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_bitwise_and()?;
 
@@ -69,8 +69,8 @@ impl ParseHelper {
         Ok(expr)
     }
 
-    // 按位与 (&)
-    // 优先级：低于 +，高于 |
+    /// 按位与 (&)
+    /// 优先级：低于 +，高于 |
     pub fn parse_bitwise_and(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_term()?; // 调用下一层级：加减法
 

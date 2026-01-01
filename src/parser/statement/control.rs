@@ -5,6 +5,7 @@ use crate::{
 };
 
 impl ParseHelper {
+    /// 解析 if 语句
     pub fn parse_if_statement(&mut self) -> Result<Expr, Error> {
         self.consume(TokenType::LeftParen, "Expect '(' after 'if'.")?;
         let condition = self.parse_expression()?;
@@ -27,6 +28,7 @@ impl ParseHelper {
         })
     }
 
+    /// 解析 while 语句
     pub fn parse_while_statement(&mut self) -> Result<Expr, Error> {
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
         let condition = self.parse_expression()?;

@@ -6,6 +6,8 @@ use crate::{
 
 impl ParseHelper {
     /// Call: func(arg1, arg2)
+    ///
+    /// 解析函数调用表达式，支持多参数函数调用
     pub fn parse_call(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_primary()?;
 
@@ -20,6 +22,11 @@ impl ParseHelper {
     }
 
     /// 解析参数列表
+    ///
+    /// 函数调用解析，处理参数列表
+    ///
+    /// # 参数
+    /// * `callee` - 被调用的函数表达式
     pub fn finish_call(&mut self, callee: Expr) -> Result<Expr, Error> {
         let mut args = Vec::new();
         if !self.check(TokenType::RightParen) {
@@ -31,6 +38,7 @@ impl ParseHelper {
                 }
             }
         }
+        // 匹配右括号
         self.consume(TokenType::RightParen, "Expected ')' after arguments.")?;
 
         let name = match callee {
@@ -44,6 +52,8 @@ impl ParseHelper {
     }
 
     /// 基本表达式 (Primary)
+    ///
+    /// 解析基本表达式，包括字面量、标识符和分组表达式
     pub fn parse_primary(&mut self) -> Result<Expr, Error> {
         if self.match_token(&[TokenType::False]) {
             return Ok(Expr::Boolean { value: false });

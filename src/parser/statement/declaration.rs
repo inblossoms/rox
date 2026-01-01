@@ -5,6 +5,7 @@ use crate::{
 };
 
 impl ParseHelper {
+    /// 解析变量声明语句
     pub fn parse_var_declaration(&mut self) -> Result<Expr, Error> {
         let name_token = self.consume(TokenType::Identifier, "Expect variable name.")?;
         let name = name_token.lexeme.clone();
@@ -26,6 +27,7 @@ impl ParseHelper {
         })
     }
 
+    /// 解析函数声明语句
     pub fn parse_function_declaration(&mut self) -> Result<Expr, Error> {
         let name_token = self.consume(TokenType::Identifier, "Expect function name.")?;
         let name = name_token.lexeme.clone();
@@ -53,6 +55,7 @@ impl ParseHelper {
         })
     }
 
+    /// 解析代码块语句
     pub fn parse_block(&mut self) -> Result<Vec<Expr>, Error> {
         let mut statements = Vec::new();
 

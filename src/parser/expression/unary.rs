@@ -6,6 +6,8 @@ use crate::{
 
 impl ParseHelper {
     /// 一元运算 (Unary): !, -
+    ///
+    /// 解析一元运算符，支持逻辑非和负号运算
     pub fn parse_unary(&mut self) -> Result<Expr, Error> {
         if self.match_token(&[TokenType::Bang, TokenType::Minus]) {
             let op = match self.previous().token_type {
