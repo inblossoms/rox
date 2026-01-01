@@ -1,13 +1,12 @@
+#![allow(dead_code)]
 use std::{fs::read_to_string, io};
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct Source {
     pub contents: String,
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub enum Error {
     Io(io::Error),
 }
@@ -26,7 +25,6 @@ pub fn reader_source(filename: &str) -> Result<Source, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn it_works() {
