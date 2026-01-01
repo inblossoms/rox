@@ -88,6 +88,7 @@ impl ParseHelper {
 
     /// 赋值 (Assignment): variable = value
     pub fn parse_assignment(&mut self) -> Result<Expr, Error> {
+        // 优先级：乘除 > 加减 > 位与 > 位或 > 比较 > 相等 > 逻辑与 > 逻辑或 > 赋值
         let expr = self.parse_or()?;
 
         if self.match_token(&[
@@ -157,7 +158,7 @@ impl ParseHelper {
         let mut expr = self.parse_and()?;
 
         while self.match_token(&[TokenType::Or]) {
-            let op = Operator::Or;
+            let op = Operator::LogicalOr;
             let right = self.parse_and()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
@@ -173,7 +174,7 @@ impl ParseHelper {
         let mut expr = self.parse_equality()?;
 
         while self.match_token(&[TokenType::And]) {
-            let op = Operator::And;
+            let op = Operator::LogicalAnd;
             let right = self.parse_equality()?;
             expr = Expr::Binary {
                 left: Box::new(expr),

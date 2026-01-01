@@ -99,7 +99,7 @@ impl Interpreter {
                 }
             }
             Expr::Binary { left, op, right } => {
-                if *op == Operator::And || *op == Operator::Or {
+                if *op == Operator::LogicalAnd || *op == Operator::LogicalOr {
                     return self.evaluate_logical(left, op, right);
                 }
 
@@ -123,6 +123,9 @@ impl Interpreter {
                             Ok(Value::Number(a / b))
                         }
                     }),
+
+						  Operator::BitwiseAnd => self.eval_bitwise(left, right, |a, b| a & b),
+                    Operator::BitwiseOr  => self.eval_bitwise(left, right, |a, b| a | b),
 
                     // 比较运算
                     Operator::Greater => {
@@ -433,7 +436,7 @@ impl Interpreter {
     ) -> Result<Value, RuntimeError> {
         let left_val = self.evaluate(left)?;
 
-        if *op == Operator::Or {
+        if *op == Operator::LogicalOr {
             if left_val.is_truthy() {
                 return Ok(left_val);
             }
@@ -442,7 +445,7 @@ impl Interpreter {
             if !left_val.is_truthy() {
                 return Ok(left_val);
             }
-        }
+        } 
 
         self.evaluate(right)
     }
@@ -530,6 +533,37 @@ impl Interpreter {
             values.push(self.evaluate(element)?);
         }
         Ok(values)
+    }
+
+	 /// 位运算辅助函数
+    fn eval_bitwise<F>(&mut self, left_expr: &Expr, right_expr: &Expr, op: F) -> Result<Value, RuntimeError>
+    where
+        F: Fn(i64, i64) -> i64,
+    {
+        // 1. 先求值
+        let l_val = self.evaluate(left_expr)?;
+        let r_val = self.evaluate(right_expr)?;
+
+        // 2. 检查类型并转换
+        match (l_val, r_val) {
+            (Value::Number(n1), Value::Number(n2)) => {
+                // f64 不支持位运算，必须转为 i64。
+                // 这里会发生截断，例如 3.5 & 1 会变成 3 & 1。
+                let i1 = n1 as i64;
+                let i2 = n2 as i64;
+                
+                let result = op(i1, i2);
+                
+                // 转回 f64
+                Ok(Value::Number(result as f64))
+            }
+            //  Rust：非数字无法进行位运算
+            (l, r) => Err(RuntimeError::TypeError(format!(
+                "Bitwise operands must be numbers. Got {} and {}.",
+                l.type_name(),
+                r.type_name()
+            ))),
+        }
     }
 }
 

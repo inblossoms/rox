@@ -35,6 +35,7 @@ pub enum TokenType {
     Number,
 
     // keywords
+    BitAnd,
     And,
     Class,
     Else,
@@ -43,6 +44,7 @@ pub enum TokenType {
     For,
     If,
     Nil,
+    BitOr,
     Or,
     Print,
     Return,
@@ -114,6 +116,7 @@ pub struct Scanner {
 }
 
 impl Scanner {
+    /// 创建一个新的词法分析器实例
     fn new(source: &str) -> Self {
         Self {
             source: source.chars().collect(),
@@ -125,6 +128,7 @@ impl Scanner {
         }
     }
 
+    /// 处理扫描过程中遇到的错误
     fn handle_error(&mut self, error: ScanError) {
         match error {
             ScanError::UnexpectedCharacter { c, line } => {
@@ -138,6 +142,7 @@ impl Scanner {
         self.errors.push(error);
     }
 
+    /// 检查当前字符是否匹配预期字符，如果匹配则消耗该字符
     fn match_char(&mut self, expected: char) -> bool {
         if self.is_at_end() || self.source[self.current] != expected {
             return false;
@@ -147,6 +152,7 @@ impl Scanner {
         true
     }
 
+    /// 获取当前位置的字符，但不消耗它
     fn peek(&self) -> char {
         if self.is_at_end() {
             return '\0';
@@ -155,6 +161,7 @@ impl Scanner {
         self.source[self.current]
     }
 
+    /// 获取当前位置下一个字符，但不消耗它
     fn peek_next(&self) -> char {
         if self.current + 1 >= self.source.len() {
             return '\0';
@@ -163,16 +170,19 @@ impl Scanner {
         self.source[self.current + 1]
     }
 
+    /// 处理空白字符，更新行号
     fn handle_whitespace(&mut self, c: char) {
         if c == '\n' {
-            self.line += 1; // 需要先增加行号 line num 会在 add_token_with_literal 中记录
+            self.line += 1;
         }
     }
 
+    /// 添加一个没有字面值的标记到标记列表
     fn add_token(&mut self, token_type: TokenType) {
         self.add_token_with_literal(token_type, Literal::None);
     }
 
+    /// 获取当前词素内容，对于字符串字面值可以去除引号
     fn lexeme(&self, is_string_lexeme: bool) -> String {
         if is_string_lexeme {
             // 提取字符串内容（去掉首尾引号）
@@ -184,6 +194,8 @@ impl Scanner {
 
         return self.source[self.start..self.current].iter().collect();
     }
+
+    /// 添加一个带有字面值的标记到标记列表
     fn add_token_with_literal(&mut self, token_type: TokenType, literal: Literal) {
         self.tokens.push(Token::new(
             token_type,
@@ -193,6 +205,7 @@ impl Scanner {
         ));
     }
 
+    /// 扫描单个标记
     fn scan_token(&mut self) {
         // 先消耗字符，推进指针
         let c = self.advance();
@@ -234,7 +247,7 @@ impl Scanner {
                 let token_type = if self.match_char('=') {
                     TokenType::BangEqual // !=
                 } else {
-                    TokenType::Bang //  ！
+                    TokenType::Bang // ！
                 };
                 self.add_token(token_type);
             }
@@ -278,6 +291,23 @@ impl Scanner {
                     self.add_token(TokenType::Slash);
                 }
             }
+            '&' => {
+                let toke_type = if self.match_char('&') {
+                    TokenType::And
+                } else {
+                    TokenType::BitAnd
+                };
+
+                self.add_token(toke_type);
+            }
+            '|' => {
+                let toke_type = if self.match_char('|') {
+                    TokenType::Or
+                } else {
+                    TokenType::BitOr
+                };
+                self.add_token(toke_type);
+            }
             ' ' | '\t' | '\r' | '\n' => {
                 self.handle_whitespace(c);
             }
@@ -295,6 +325,7 @@ impl Scanner {
         }
     }
 
+    /// 扫描字符串字面值
     fn is_string(&mut self) {
         // Note：进入此方法时，开头的 '"' 已经被 advance() 消耗了
         while self.peek() != '"' && !self.is_at_end() {
@@ -306,6 +337,7 @@ impl Scanner {
 
         if self.is_at_end() {
             // 进入该判断 意味着字符串未闭合 且不存在下一个字符
+            self.handle_error(ScanError::UnterminatedString { line: self.line });
             return;
         }
 
@@ -315,6 +347,7 @@ impl Scanner {
         self.add_token_with_literal(TokenType::String, Literal::String(self.lexeme(true)));
     }
 
+    /// 扫描数字字面值
     fn is_digit(&mut self) {
         // 只要 peek 依旧是数字就继续消耗
         while self.peek().is_numeric() {
@@ -335,13 +368,14 @@ impl Scanner {
         self.add_token_with_literal(TokenType::Number, Literal::Number(value));
     }
 
+    /// 扫描标识符或关键字
     fn is_identifier(&mut self) {
         while self.peek().is_alphanumeric() || self.peek() == '_' {
             self.advance();
         }
 
         let token_type = match self.lexeme(false).as_str() {
-            "and" => TokenType::And,
+            "and" => TokenType::BitAnd,
             "class" => TokenType::Class,
             "else" => TokenType::Else,
             "false" => TokenType::False,
@@ -349,7 +383,7 @@ impl Scanner {
             "fun" => TokenType::Fun,
             "if" => TokenType::If,
             "nil" => TokenType::Nil,
-            "or" => TokenType::Or,
+            "or" => TokenType::BitOr,
             "print" => TokenType::Print,
             "return" => TokenType::Return,
             "super" => TokenType::Super,
@@ -363,10 +397,12 @@ impl Scanner {
         self.add_token(token_type);
     }
 
+    /// 检查是否到达源码末尾
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
 
+    /// 扫描所有标记
     fn scan_tokens(&mut self) -> Result<Tokens, Error> {
         while !self.is_at_end() {
             self.start = self.current;
@@ -385,6 +421,7 @@ impl Scanner {
         }
     }
 
+    /// 消耗一个字符并返回该字符
     fn advance(&mut self) -> char {
         let c = self.source[self.current];
         self.current += 1;
@@ -392,9 +429,10 @@ impl Scanner {
     }
 }
 
+/// 将源码转换为标记序列
 pub fn tokenize(source: Source) -> Result<Tokens, Error> {
     let mut scanner = Scanner::new(&source.contents);
-    let tokens = scanner.scan_tokens().unwrap();
+    let tokens = scanner.scan_tokens()?;
 
     Ok(tokens)
 }
@@ -461,7 +499,7 @@ mod tests {
             tokens.unwrap().tokens,
             vec![
                 Token::new(TokenType::Identifier, "ray", 1, Literal::None),
-                Token::new(TokenType::And, "and", 1, Literal::None),
+                Token::new(TokenType::BitAnd, "and", 1, Literal::None),
                 Token::new(TokenType::Class, "class", 1, Literal::None),
                 Token::new(TokenType::Else, "else", 1, Literal::None),
                 Token::new(TokenType::False, "false", 1, Literal::None),
@@ -469,7 +507,7 @@ mod tests {
                 Token::new(TokenType::Fun, "fun", 1, Literal::None),
                 Token::new(TokenType::If, "if", 1, Literal::None),
                 Token::new(TokenType::Nil, "nil", 1, Literal::None),
-                Token::new(TokenType::Or, "or", 1, Literal::None),
+                Token::new(TokenType::BitOr, "or", 1, Literal::None),
                 Token::new(TokenType::Print, "print", 1, Literal::None),
                 Token::new(TokenType::Return, "return", 1, Literal::None),
                 Token::new(TokenType::Super, "super", 1, Literal::None),

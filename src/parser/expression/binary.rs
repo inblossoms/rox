@@ -27,7 +27,7 @@ impl ParseHelper {
 
     /// 比较 (Comparison): <, <=, >, >=
     pub fn parse_comparison(&mut self) -> Result<Expr, Error> {
-        let mut expr = self.parse_term()?;
+        let mut expr = self.parse_bitwise_or()?;
 
         while self.match_token(&[
             TokenType::Less,
@@ -42,6 +42,40 @@ impl ParseHelper {
                 TokenType::GreaterEqual => Operator::GreaterEqual,
                 _ => unreachable!(),
             };
+            let right = self.parse_bitwise_or()?;
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
+    }
+
+    // 按位或 (|)
+    // 优先级：低于 &，高于 comparison
+    pub fn parse_bitwise_or(&mut self) -> Result<Expr, Error> {
+        let mut expr = self.parse_bitwise_and()?;
+
+        while self.match_token(&[TokenType::BitOr]) {
+            let op = Operator::BitwiseOr;
+            let right = self.parse_bitwise_and()?; // 右结合性交给循环，右侧调用下一层级
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
+    }
+
+    // 按位与 (&)
+    // 优先级：低于 +，高于 |
+    pub fn parse_bitwise_and(&mut self) -> Result<Expr, Error> {
+        let mut expr = self.parse_term()?; // 调用下一层级：加减法
+
+        while self.match_token(&[TokenType::BitAnd]) {
+            let op = Operator::BitwiseAnd;
             let right = self.parse_term()?;
             expr = Expr::Binary {
                 left: Box::new(expr),

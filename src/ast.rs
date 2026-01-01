@@ -19,8 +19,10 @@ pub enum Operator {
     Not,
     Assign,
     AddAssign,
-    Or,
-    And,
+    LogicalOr,
+    LogicalAnd,
+    BitwiseAnd,
+    BitwiseOr,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -373,8 +375,10 @@ fn format_operator(op: &Operator) -> &'static str {
         Operator::GreaterEqual => ">=",
         Operator::Less => "<",
         Operator::LessEqual => "<=",
-        Operator::And => "&&",
-        Operator::Or => "||",
+        Operator::LogicalAnd => "&&",
+        Operator::LogicalOr => "||",
+        Operator::BitwiseOr => "|",
+        Operator::BitwiseAnd => "&",
     }
 }
 
