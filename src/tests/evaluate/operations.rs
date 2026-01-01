@@ -143,7 +143,7 @@ fn test_logical_operations() {
     // Test AND short-circuit
     let expr = Expr::Binary {
         left: Box::new(Expr::Boolean { value: false }),
-        op: Operator::And,
+        op: Operator::LogicalAnd,
         right: Box::new(Expr::Number {
             value: "100".to_string(),
         }),
@@ -154,7 +154,7 @@ fn test_logical_operations() {
     // Test OR short-circuit
     let expr = Expr::Binary {
         left: Box::new(Expr::Boolean { value: true }),
-        op: Operator::Or,
+        op: Operator::LogicalOr,
         right: Box::new(Expr::Number {
             value: "100".to_string(),
         }),
