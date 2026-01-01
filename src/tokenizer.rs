@@ -353,11 +353,14 @@ impl Scanner {
         }
 
         // 小数部分
-        if self.peek() == '.' && self.peek_next().is_numeric() {
+        if self.peek() == '.' {
             self.advance(); // 消耗 '.'
 
-            while self.peek().is_numeric() {
-                self.advance();
+            while self.peek_next().is_numeric() {
+                // 如果后续存在数字，则继续消耗
+                while self.peek().is_numeric() {
+                    self.advance();
+                }
             }
         }
 
