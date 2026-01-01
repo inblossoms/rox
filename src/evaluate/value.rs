@@ -1,9 +1,5 @@
-use crate::ast::Expr;
-use crate::evaluate::environment::Environment;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::fmt;
-use std::rc::Rc;
+use crate::{ast::Expr, evaluate::environment::Environment};
+use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -22,6 +18,7 @@ pub enum Value {
     List(Vec<Value>),
     Tuple(Vec<Value>),
     Dict(HashMap<String, Value>),
+    Print(String),
 }
 
 impl fmt::Display for Value {
@@ -57,15 +54,16 @@ impl fmt::Display for Value {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            Value::Print(print) => write!(f, "{}", print),
         }
     }
 }
 
 impl Value {
     /// 判断值是否为真值（Truthy）
-    /// 
+    ///
     /// 在Lox语言中，nil和false为假值，其他所有值都是真值
-    /// 
+    ///
     /// # 返回值
     /// * `bool` - 值是否为真值
     pub fn is_truthy(&self) -> bool {
@@ -77,7 +75,7 @@ impl Value {
     }
 
     /// 获取值的类型名称
-    /// 
+    ///
     /// # 返回值
     /// * `&'static str` - 类型名称字符串
     pub fn type_name(&self) -> &'static str {
@@ -90,6 +88,7 @@ impl Value {
             Value::List(_) => "List",
             Value::Dict(_) => "Dict",
             Value::Tuple(_) => "Tuple",
+            Value::Print(_) => "Print",
         }
     }
 }
