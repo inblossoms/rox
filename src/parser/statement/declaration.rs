@@ -66,4 +66,12 @@ impl ParseHelper {
         self.consume(TokenType::RightBrace, "Expect '}' after block.")?;
         Ok(statements)
     }
+
+    /// 解析打印语句
+    pub fn parse_print_statement(&mut self) -> Result<Expr, Error> {
+        let expr = self.parse_expression_statement()?;
+        Ok(Expr::Print {
+            expr: Box::new(expr),
+        })
+    }
 }

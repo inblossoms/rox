@@ -40,4 +40,21 @@ impl ParseHelper {
             body: Box::new(body),
         })
     }
+
+    /// 解析 for 循环语句
+    pub fn parse_for_statement(&self) -> Result<Expr, Error> {
+        todo!()
+    }
+
+    /// 解析 break 语句
+    pub fn parse_break_statement(&mut self) -> Result<Expr, Error> {
+        self.consume(TokenType::Semicolon, "Expect ';' after 'break'.")?;
+        Ok(Expr::Break)
+    }
+
+    /// 解析 continue 语句
+    pub fn parse_continue_statement(&mut self) -> Result<Expr, Error> {
+        self.consume(TokenType::Semicolon, "Expect ';' after 'break'.")?;
+        Ok(Expr::Continue)
+    }
 }

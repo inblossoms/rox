@@ -53,6 +53,8 @@ pub enum TokenType {
     True,
     Var,
     While,
+    Continue,
+    Break,
 
     Eof,
 }
@@ -392,6 +394,8 @@ impl Scanner {
             "true" => TokenType::True,
             "var" => TokenType::Var,
             "while" => TokenType::While,
+            "continue" => TokenType::Continue,
+            "break" => TokenType::Break,
             _ => TokenType::Identifier,
         };
 

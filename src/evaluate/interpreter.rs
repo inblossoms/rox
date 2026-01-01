@@ -20,6 +20,7 @@ pub enum RuntimeError {
     TypeError(String),
     DivisionByZero,
     Return(Value), 
+	 Print(String),
     Break,
     Continue,
 }
@@ -61,10 +62,16 @@ impl Interpreter {
                 return Ok(result);
             }
 
-            // 不是 Block，则正常求值
-            return self.evaluate(&expr);
-        }
-        Ok(Value::Nil)
+            let result = self.evaluate(&expr);
+        
+            match result {
+                Err(RuntimeError::Break) => Err(RuntimeError::Generic("Cannot use 'break' outside of a loop.".into())),
+                Err(RuntimeError::Continue) => Err(RuntimeError::Generic("Cannot use 'continue' outside of a loop.".into())),
+                _ => result,
+            }
+        } else {
+            Ok(Value::Nil)
+		  }
     }
 
     /// 解释器的核心，递归地处理 AST 中的表达式节点进行求值，并返回结果
@@ -77,6 +84,8 @@ impl Interpreter {
     /// * `Err(RuntimeError)` - 求值过程中发生的错误
     fn evaluate(&mut self, expr: &Expr) -> Result<Value, RuntimeError> {
         match expr {
+            Expr::Break => Err(RuntimeError::Break),
+            Expr::Continue => Err(RuntimeError::Continue),
             Expr::Number { value } => {
                 let n = value
                     .parse::<f64>()
@@ -189,19 +198,25 @@ impl Interpreter {
             }
             Expr::While { condition, body } => {
                 let mut result = Value::Nil;
+        
                 while self.evaluate(condition)?.is_truthy() {
                     match self.evaluate(body) {
-                        Ok(val) => result = val,
+                        Ok(val) => {
+                            result = val; // 更新最后一条语句的值
+                        }
                         Err(e) => match e {
-                            RuntimeError::Break => break, // 退出循环
-                            RuntimeError::Continue => continue, // 跳过剩余部分，进行下一次循环
-                            RuntimeError::Return(v) => return Err(RuntimeError::Return(v)), // 继续向上抛出，直到遇到函数边界
+                            RuntimeError::Break => break,
+                            // Note: 借用语言机制 continue 进入下一次循环条件检查
+                            RuntimeError::Continue => continue,
                             _ => return Err(e),
-                        },
+                        }
                     }
                 }
                 Ok(result)
             }
+				Expr::For { initializer, condition, increment, body } => {
+					todo!()
+				}
             Expr::Function { name, args, body } => {
                 let function = Value::Function {
                     name: name.clone(),
@@ -371,8 +386,7 @@ impl Interpreter {
                 self.environment.borrow_mut().define(name.clone(), value);
                 Ok(Value::Nil)
             },
-            Expr::Break => Err(RuntimeError::Break),
-            Expr::Continue => Err(RuntimeError::Continue),
+				Expr::Print{expr} => {self.execute_print(expr)},
 		  }
     }
 	
@@ -564,6 +578,11 @@ impl Interpreter {
             ))),
         }
     }
+	 
+	 fn execute_print(&mut self, expr: &Expr) -> Result<Value, RuntimeError> {
+		let value = self.evaluate(expr)?;
+		Ok(Value::Print(value.to_string()))
+	 }
 }
 
 

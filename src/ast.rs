@@ -101,6 +101,15 @@ pub enum Expr {
         condition: Box<Expr>,
         body: Box<Expr>,
     },
+    For {
+        initializer: Box<Expr>,
+        condition: Box<Expr>,
+        increment: Box<Expr>,
+        body: Box<Expr>,
+    },
+    Print {
+        expr: Box<Expr>,
+    },
     Break,
     Continue,
 }
@@ -343,6 +352,7 @@ pub fn format_expr(expr: &Expr) -> String {
         }
         Expr::Break => "break".to_string(),
         Expr::Continue => "continue".to_string(),
+        Expr::Print { expr } => "print ".to_string() + &format_expr(expr),
     }
 }
 fn format_stmt(stmt: &Expr) -> String {

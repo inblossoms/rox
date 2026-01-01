@@ -254,6 +254,19 @@ impl ParseHelper {
             let statements = self.parse_block()?;
             return Ok(Expr::Block { body: statements });
         }
+        if self.match_token(&[TokenType::For]) {
+            return self.parse_for_statement();
+        }
+        if self.match_token(&[TokenType::Break]) {
+            return self.parse_break_statement();
+        }
+        if self.match_token(&[TokenType::Continue]) {
+            return self.parse_continue_statement();
+        }
+        if self.match_token(&[TokenType::Print]) {
+            return self.parse_print_statement();
+        }
+        // TODO: 添加 Class、super、this 逻辑实现
 
         // 解析表达式语句（以分号结尾的表达式）
         self.parse_expression_statement()
