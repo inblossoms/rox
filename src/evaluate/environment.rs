@@ -27,12 +27,25 @@ impl Environment {
         }
     }
 
-    /// 记录变量 (var x = 1;)
+    /// 在当前环境中定义一个变量
+    ///
+    /// # 参数
+    /// * `name` - 变量名
+    /// * `value` - 变量值
     pub fn define(&mut self, name: String, value: Value) {
         self.values.insert(name, value);
     }
 
-    /// 获取变量 (x)
+    /// 从环境中获取变量的值
+    ///
+    /// 按照当前作用域到父级作用域的顺序查找变量
+    ///
+    /// # 参数
+    /// * `name` - 要获取的变量名
+    ///
+    /// # 返回值
+    /// * `Some(Value)` - 找到的变量值
+    /// * `None` - 变量不存在
     pub fn get(&self, name: &str) -> Option<Value> {
         // 1. 先查当前作用域
         if let Some(value) = self.values.get(name) {
@@ -47,7 +60,17 @@ impl Environment {
         None
     }
 
-    /// 处理变量赋值行为 eg:(x = 2;)
+    /// 处理变量赋值行为
+    ///
+    /// 在当前作用域或父级作用域中查找变量并赋值
+    ///
+    /// # 参数
+    /// * `name` - 变量名
+    /// * `value` - 要赋的值
+    ///
+    /// # 返回值
+    /// * `true` - 赋值成功
+    /// * `false` - 变量未定义
     pub fn assign(&mut self, name: &str, value: Value) -> bool {
         // 1. 如果变量在当前作用域存在，更新它
         if self.values.contains_key(name) {

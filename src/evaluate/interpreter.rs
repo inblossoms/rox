@@ -536,6 +536,17 @@ impl Interpreter {
     }
 
 	 /// 位运算辅助函数
+    /// 
+    /// 对两个表达式进行位运算操作，支持按位与、按位或操作
+    /// 
+    /// # 参数
+    /// * `left_expr` - 左侧表达式
+    /// * `right_expr` - 右侧表达式
+    /// * `op` - 位运算操作函数
+    /// 
+    /// # 返回值
+    /// * `Ok(Value)` - 位运算结果
+    /// * `Err(RuntimeError)` - 类型错误（当操作数不是数字时）
     fn eval_bitwise<F>(&mut self, left_expr: &Expr, right_expr: &Expr, op: F) -> Result<Value, RuntimeError>
     where
         F: Fn(i64, i64) -> i64,
