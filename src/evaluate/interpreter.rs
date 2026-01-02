@@ -586,7 +586,7 @@ impl Interpreter {
 }
 
 
-#[cfg(test)]
-#[path = "../tests/evaluate/mod.rs"]
-mod evaluate_tests;
 
+#[cfg(test)]
+#[path = "tests/mod.rs"]
+mod evaluate_tests;
