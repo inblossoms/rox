@@ -250,6 +250,10 @@ impl ParseHelper {
         if self.match_token(&[TokenType::Fun]) {
             return self.parse_function_declaration();
         }
+        // 允许空语句: ";", "for(;;);", "{ ; }"
+        if self.match_token(&[TokenType::Semicolon]) {
+            return Ok(Expr::Nil); // Expr::Empty
+        }
         if self.match_token(&[TokenType::LeftBrace]) {
             let statements = self.parse_block()?;
             return Ok(Expr::Block { body: statements });

@@ -83,9 +83,9 @@ pub enum Expr {
         body: Box<Expr>,
     },
     For {
-        initializer: Box<Expr>,
-        condition: Box<Expr>,
-        increment: Box<Expr>,
+        initializer: Option<Box<Expr>>,
+        condition: Option<Box<Expr>>,
+        increment: Option<Box<Expr>>,
         body: Box<Expr>,
     },
     Print {

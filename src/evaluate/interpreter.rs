@@ -215,8 +215,54 @@ impl Interpreter {
                 Ok(result)
             }
 				Expr::For { initializer, condition, increment, body } => {
-					todo!()
-				}
+                // 1. 定义的 i 应该只在循环内部有效 (防止 var i 泄露到外部)
+                let previous_env = self.environment.clone();
+                self.environment = Rc::new(RefCell::new(Environment::with_enclosing(previous_env.clone())));
+
+                // 2. 初始化 (如果有)
+                if let Some(init) = initializer {
+                    self.evaluate(init)?;
+                }
+
+                let mut result = Value::Nil;
+
+                loop {
+                    // 3. 检查条件
+                    if let Some(cond) = condition {
+                        if !self.evaluate(cond)?.is_truthy() {
+                            break; // 条件为假，退出循环
+                        }
+                    } else {
+                        // 如果没有条件 (for(;;))，默认为 true 死循环
+                    }
+
+                    // 4. 执行循环体
+                    match self.evaluate(body) {
+                        Ok(val) => result = val,
+                        Err(e) => match e {
+                            RuntimeError::Break => break, // 捕获 break，退出 loop
+                            RuntimeError::Continue => {
+                                // Note：Continue 后必须执行 increment 增量操作，不能直接跳过
+                                // 这里什么都不做，让代码流继续走到下面的 increment 执行处
+                            }
+                            _ => {
+                                // 发生错误，需要恢复环境并抛出
+                                self.environment = previous_env;
+                                return Err(e);
+                            }
+                        }
+                    }
+
+                    // 5. 执行增量操作：无论是正常执行完 body 还是遇到了 continue，都要执行这一步
+                    if let Some(incr) = increment {
+                        self.evaluate(incr)?;
+                    }
+                }
+
+                // 6. 恢复环境 (销毁 loop 变量 i)
+                self.environment = previous_env;
+                Ok(result)
+            }
             Expr::Function { name, args, body } => {
                 let function = Value::Function {
                     name: name.clone(),
