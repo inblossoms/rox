@@ -132,6 +132,13 @@ impl Interpreter {
                             Ok(Value::Number(a / b))
                         }
                     }),
+                    Operator::Mod => self.check_number_operands(l, r, |a, b| {
+                        if b == 0.0 {
+                            Err(RuntimeError::DivisionByZero)
+                        } else {
+                            Ok(Value::Number(a.rem_euclid(b) ))
+                        }
+                    }),
 
                     Operator::BitwiseAnd => self.eval_bitwise(left, right, |a, b| a & b),
                     Operator::BitwiseOr  => self.eval_bitwise(left, right, |a, b| a | b),

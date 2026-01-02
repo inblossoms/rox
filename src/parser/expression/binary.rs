@@ -123,14 +123,15 @@ impl ParseHelper {
         Ok(expr)
     }
 
-    /// 因子 (Factor): *, /
+    /// 因子 (Factor): *, /, %
     pub fn parse_factor(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_unary()?;
 
-        while self.match_token(&[TokenType::Star, TokenType::Slash]) {
+        while self.match_token(&[TokenType::Star, TokenType::Slash, TokenType::Percent]) {
             let op = match self.previous().token_type {
                 TokenType::Star => Operator::Mul,
                 TokenType::Slash => Operator::Div,
+                TokenType::Percent => Operator::Mod,
                 _ => unreachable!(),
             };
             let right = self.parse_unary()?;

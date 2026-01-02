@@ -195,6 +195,9 @@ impl Scanner {
                     self.add_token(TokenType::Slash);
                 }
             }
+            '%' => {
+                self.add_token(TokenType::Percent);
+            }
             '&' => {
                 let toke_type = if self.match_char('&') {
                     TokenType::And

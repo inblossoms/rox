@@ -4,6 +4,7 @@ pub enum Operator {
     Sub,
     Mul,
     Div,
+    Mod,
     Less,
     LessEqual,
     Greater,

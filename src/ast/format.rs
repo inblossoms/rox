@@ -164,6 +164,7 @@ fn format_operator(op: &super::Operator) -> &'static str {
         super::Operator::Sub => "-",
         super::Operator::Mul => "*",
         super::Operator::Div => "/",
+        super::Operator::Mod => "%",
         super::Operator::Assign => "=",
         super::Operator::AddAssign => "+=",
         super::Operator::Not => "!",

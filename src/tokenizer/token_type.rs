@@ -16,6 +16,10 @@ pub enum TokenType {
     Semicolon,
     Slash,
     Star,
+    BitAnd,
+    BitXor,
+    BitOr,
+    Percent,
 
     // one or two character
     Bang,
@@ -33,7 +37,6 @@ pub enum TokenType {
     Number,
 
     // keywords
-    BitAnd,
     And,
     Class,
     Else,
@@ -42,8 +45,6 @@ pub enum TokenType {
     For,
     If,
     Nil,
-    BitXor,
-    BitOr,
     Or,
     Print,
     Return,
