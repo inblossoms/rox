@@ -15,12 +15,3 @@ pub fn reader_source(filename: &str) -> Result<Source, Error> {
     let content = read_to_string(filename)?;
     Ok(Source { contents: content })
 }
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn it_works() {
-        assert_eq!((), ());
-    }
-}
