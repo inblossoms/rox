@@ -8,7 +8,10 @@ pub struct Source {
 }
 
 pub fn reader_source(filename: &str) -> Result<Source, Error> {
-    println!("Reading source code...");
+    let file_extension = filename.split('.').last().unwrap();
+    if file_extension != "rox" {
+        return Err(Error::InvalidFileExtension(file_extension.to_string()));
+    }
     let content = read_to_string(filename)?;
     Ok(Source { contents: content })
 }
