@@ -47,21 +47,28 @@ macro_rules! impl_from_error {
 
 impl_from_error!(Error, Read, Parse, Evaluate, Tokenize, Runtime);
 
-fn main() {
-    println!("Hello, rox!");
+fn main() -> Result<(), Error> {
+    println!("lox v0.1.0 - A simple scripting language interpreter");
 
     let input_args = env::args().collect::<Vec<_>>();
     let mut interpreter = Interpreter::new(); // 需要保证解释器在解析过程中的上下文一致性，所以将其提取到上层
 
     if input_args.len() == 1 {
-        run_prompt(&mut interpreter);
+        println!("Type 'help' for more information or press Ctrl+C to exit.");
+        Ok(run_prompt(&mut interpreter))
     } else if input_args.len() == 2 {
         match run_file(&input_args[1], &mut interpreter) {
             Ok(r) => {
-                println!("Work goes done！\nReturn: {r:?}");
+                // 如果执行成功且有返回值，显示结果
+                if r != Value::Nil {
+                    println!("Result: {:?}", r);
+                } else {
+                    println!("Script executed successfully.");
+                }
+                Ok(())
             }
             Err(e) => {
-                eprintln!("Work goes wrong, failed info: {:?}", e);
+                eprintln!("Error executing script: {:?}", e);
                 std::process::exit(1);
             }
         }
@@ -92,7 +99,6 @@ fn run_prompt(interpreter: &mut Interpreter) {
                 if r != Value::Nil {
                     println!("{:?}", r);
                 }
-                println!("Press Ctrl+C to exit.")
             }
             Err(e) => eprintln!("Read line goes wrong, failed info: {:?}", e),
         }
@@ -104,7 +110,11 @@ fn run_interpreter_with_state(
     interpreter: &mut Interpreter,
 ) -> Result<Value, Error> {
     let tokens = tokenizer::tokenize(source)?;
+    //  println!("Tokens: {:#?}", tokens);
+
     let ast = parser::parse(tokens)?;
+    //  println!("AST: {:#?}", ast);
+
     let out = interpreter.interpret(ast)?;
 
     Ok(out)
