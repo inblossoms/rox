@@ -55,11 +55,28 @@ impl ParseHelper {
     /// 按位或 (|)
     /// 优先级：低于 &，高于 comparison
     pub fn parse_bitwise_or(&mut self) -> Result<Expr, Error> {
-        let mut expr = self.parse_bitwise_and()?;
+        let mut expr = self.parse_bitwise_xor()?;
 
         while self.match_token(&[TokenType::BitOr]) {
             let op = Operator::BitwiseOr;
-            let right = self.parse_bitwise_and()?; // 右结合性交给循环，右侧调用下一层级
+            let right = self.parse_bitwise_xor()?; // 右结合性交给循环，右侧调用下一层级
+            expr = Expr::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
+    }
+
+    /// 按位异或 (^)
+    /// 优先级：低于 &，高于 |
+    pub fn parse_bitwise_xor(&mut self) -> Result<Expr, Error> {
+        let mut expr = self.parse_bitwise_and()?;
+
+        while self.match_token(&[TokenType::BitXor]) {
+            let op = Operator::BitwiseXor;
+            let right = self.parse_bitwise_and()?;
             expr = Expr::Binary {
                 left: Box::new(expr),
                 op,

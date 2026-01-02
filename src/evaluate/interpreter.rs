@@ -133,8 +133,10 @@ impl Interpreter {
                         }
                     }),
 
-						  Operator::BitwiseAnd => self.eval_bitwise(left, right, |a, b| a & b),
+                    Operator::BitwiseAnd => self.eval_bitwise(left, right, |a, b| a & b),
                     Operator::BitwiseOr  => self.eval_bitwise(left, right, |a, b| a | b),
+                    // 添加异或运算符支持
+                    Operator::BitwiseXor => self.eval_bitwise(left, right, |a, b| a ^ b),
 
                     // 比较运算
                     Operator::Greater => {

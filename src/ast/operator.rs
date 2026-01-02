@@ -13,6 +13,7 @@ pub enum Operator {
     Not,
     Assign,
     AddAssign,
+    BitwiseXor,
     LogicalOr,
     LogicalAnd,
     BitwiseAnd,

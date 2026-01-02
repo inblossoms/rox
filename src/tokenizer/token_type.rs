@@ -42,6 +42,7 @@ pub enum TokenType {
     For,
     If,
     Nil,
+    BitXor,
     BitOr,
     Or,
     Print,

@@ -175,6 +175,7 @@ fn format_operator(op: &super::Operator) -> &'static str {
         super::Operator::LessEqual => "<=",
         super::Operator::LogicalAnd => "&&",
         super::Operator::LogicalOr => "||",
+        super::Operator::BitwiseXor => "^",
         super::Operator::BitwiseOr => "|",
         super::Operator::BitwiseAnd => "&",
     }

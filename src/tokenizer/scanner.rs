@@ -157,6 +157,14 @@ impl Scanner {
                 };
                 self.add_token(token_type);
             }
+            '^' => {
+                //  let token_type = if self.match_char('=') {
+                //      TokenType::CaretEqual
+                //  } else {
+                //      TokenType::Caret
+                //  };
+                self.add_token(TokenType::BitXor);
+            }
             '<' => {
                 let token_type = if self.match_char('=') {
                     TokenType::LessEqual
