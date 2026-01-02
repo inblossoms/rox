@@ -1,0 +1,20 @@
+#[derive(Debug, PartialEq, Clone)]
+pub enum Operator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    Equal,
+    NotEqual,
+    Not,
+    Assign,
+    AddAssign,
+    LogicalOr,
+    LogicalAnd,
+    BitwiseAnd,
+    BitwiseOr,
+}
