@@ -1,109 +1,5 @@
-use crate::reader::Source;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TokenType {
-    // single character
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    Comma,
-    Dot,
-    Minus,
-    Plus,
-    PlusEqual,
-    MinusEqual,
-    SlashEqual,
-    StarEqual,
-    Semicolon,
-    Slash,
-    Star,
-
-    // one or two character
-    Bang,
-    BangEqual,
-    Equal,
-    EqualEqual,
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-
-    // literals
-    Identifier,
-    String,
-    Number,
-
-    // keywords
-    BitAnd,
-    And,
-    Class,
-    Else,
-    False,
-    Fun,
-    For,
-    If,
-    Nil,
-    BitOr,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
-    Continue,
-    Break,
-
-    Eof,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Literal {
-    String(String),
-    Number(f64),
-    Nil,
-    None,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Token {
-    pub token_type: TokenType,
-    pub lexeme: String,
-    pub line: usize,
-    pub literal: Literal,
-}
-
-impl Token {
-    pub fn new(
-        token_type: TokenType,
-        lexeme: impl Into<String>,
-        line: usize,
-        literal: Literal,
-    ) -> Self {
-        Self {
-            token_type,
-            lexeme: lexeme.into(),
-            line,
-            literal,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Tokens {
-    pub tokens: Vec<Token>,
-}
-
-#[derive(Debug)]
-pub struct Error(Vec<ScanError>);
-
-#[derive(Debug, Clone)]
-enum ScanError {
-    UnexpectedCharacter { c: char, line: usize },
-    UnterminatedString { line: usize },
-}
+use super::{Literal, Token, TokenType, Tokens};
+use crate::tokenizer::error::{Error as ScannerError, ScanError};
 
 pub struct Scanner {
     // 这里将输入的源文本转换为Vec<char>。
@@ -408,7 +304,7 @@ impl Scanner {
     }
 
     /// 扫描所有标记
-    fn scan_tokens(&mut self) -> Result<Tokens, Error> {
+    fn scan_tokens(&mut self) -> Result<Tokens, ScannerError> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token();
@@ -418,7 +314,7 @@ impl Scanner {
             .push(Token::new(TokenType::Eof, "", self.line, Literal::None));
 
         if self.errors.len() > 0 {
-            return Err(Error(self.errors.clone()));
+            return Err(ScannerError(self.errors.clone()));
         } else {
             return Ok(Tokens {
                 tokens: self.tokens.clone(),
@@ -451,7 +347,7 @@ impl Scanner {
 }
 
 /// 将源码转换为标记序列
-pub fn tokenize(source: Source) -> Result<Tokens, Error> {
+pub fn tokenize(source: crate::reader::Source) -> Result<Tokens, ScannerError> {
     let mut scanner = Scanner::new(&source.contents);
     let tokens = scanner.scan_tokens()?;
 
@@ -459,5 +355,5 @@ pub fn tokenize(source: Source) -> Result<Tokens, Error> {
 }
 
 #[cfg(test)]
-#[path = "tests/tokenizer/mod.rs"]
+#[path = "tests/mod.rs"]
 mod tokenizer_tests;
