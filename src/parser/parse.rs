@@ -331,5 +331,5 @@ pub fn parse(tokens: Tokens) -> Result<AST, Error> {
 }
 
 #[cfg(test)]
-#[path = "../tests/parser/mod.rs"]
+#[path = "tests/mod.rs"]
 mod parser_tests;
