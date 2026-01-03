@@ -1,5 +1,6 @@
 use crate::ast::{Expr, Operator};
 use crate::evaluate::{interpreter::evaluate_tests::create_test_interpreter, value::Value};
+use crate::tokenizer::{Literal, Token, TokenType};
 
 #[test]
 fn test_function_definition_and_call() {
@@ -79,9 +80,10 @@ fn test_return_statement() {
         args: vec![],
         body: vec![
             Expr::Return {
-                expr: Box::new(Expr::Number {
+                keyword: Token::new(TokenType::Return, "return", 1, Literal::None),
+                value: Some(Box::new(Expr::Number {
                     value: "42".to_string(),
-                }),
+                })),
             },
             Expr::Number {
                 value: "100".to_string(),
