@@ -127,7 +127,14 @@ pub fn format_expr(expr: &Expr) -> String {
             increment,
             body,
         } => {
-            todo!()
+            let mut result = "for ".to_string();
+
+            result += &format_expr(initializer.as_ref().unwrap());
+            result += &format_expr(condition.as_ref().unwrap());
+            result += &format_expr(increment.as_ref().unwrap());
+            result += &format_stmt(body);
+
+            result
         }
         Expr::VarDecl { name, initializer } => {
             let mut result = "var ".to_string();
