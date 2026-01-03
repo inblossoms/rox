@@ -1,23 +1,30 @@
-use std::io;
+use std::{fmt::Display, io};
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub enum Error {
     Io(io::Error),
     InvalidFileExtension(String),
 }
 
-impl Error {}
-
 impl From<String> for Error {
-    fn from(value: String) -> Self {
-        let err_msg = format!("Invalid file extension: '{value}'. File must have '.rox' extension.");
-        Self::InvalidFileExtension(err_msg)
+    fn from(ext: String) -> Self {
+        Self::InvalidFileExtension(ext)
     }
 }
 
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Self::Io(e)
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Io(err) => write!(f, "Could not read source file: {}", err),
+            Error::InvalidFileExtension(ext) => {
+                write!(f, "Invalid file extension: '{}'. Expecting '.rox'.", ext)
+            }
+        }
     }
 }

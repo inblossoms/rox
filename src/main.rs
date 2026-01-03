@@ -4,50 +4,19 @@ use std::{
 };
 
 use crate::{
-    evaluate::{
-        Interpreter, Value,
-        interpreter::{self, RuntimeError},
-    },
+    error::RoxError,
+    evaluate::{Interpreter, Value},
     reader::Source,
 };
 
 mod ast;
+mod error;
 mod evaluate;
 mod parser;
 mod reader;
 mod tokenizer;
 
-type Read = reader::Error;
-type Parse = parser::Error;
-type Evaluate = interpreter::Error;
-type Tokenize = tokenizer::Error;
-type Runtime = RuntimeError;
-
-#[derive(Debug)]
-#[allow(dead_code)]
-enum Error {
-    Read(Read),
-    Parse(Parse),
-    Evaluate(Evaluate),
-    Tokenize(Tokenize),
-    Runtime(Runtime),
-}
-
-macro_rules! impl_from_error {
-    ($enum_name:ident, $($variant:ident),+) => {
-        $(
-            impl From<$variant> for $enum_name {
-                fn from(error: $variant) -> Self {
-                    Self::$variant(error)
-                }
-            }
-        )+
-    };
-}
-
-impl_from_error!(Error, Read, Parse, Evaluate, Tokenize, Runtime);
-
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), RoxError> {
     println!("lox v0.1.0 - A simple scripting language interpreter");
 
     let input_args = env::args().collect::<Vec<_>>();
@@ -61,14 +30,14 @@ fn main() -> Result<(), Error> {
             Ok(r) => {
                 // 如果执行成功且有返回值，显示结果
                 if r != Value::Nil {
-                    println!("Result: {:?}", r);
+                    println!("Result: {}", r);
                 } else {
                     println!("Script executed successfully.");
                 }
                 Ok(())
             }
             Err(e) => {
-                eprintln!("Error executing script: {:?}", e);
+                eprintln!("Error executing script! {e}");
                 std::process::exit(1);
             }
         }
@@ -78,7 +47,7 @@ fn main() -> Result<(), Error> {
     }
 }
 
-fn run_file(file: &str, interpreter: &mut Interpreter) -> Result<Value, Error> {
+fn run_file(file: &str, interpreter: &mut Interpreter) -> Result<Value, RoxError> {
     let source = reader::reader_source(file)?;
     run_interpreter_with_state(source, interpreter)
 }
@@ -108,7 +77,7 @@ fn run_prompt(interpreter: &mut Interpreter) {
 fn run_interpreter_with_state(
     source: Source,
     interpreter: &mut Interpreter,
-) -> Result<Value, Error> {
+) -> Result<Value, RoxError> {
     let tokens = tokenizer::tokenize(source)?;
     //  println!("Tokens: {:#?}", tokens);
 

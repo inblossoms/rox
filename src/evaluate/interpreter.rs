@@ -1,30 +1,16 @@
 use crate::ast::{AST, Expr, Operator};
 use crate::evaluate::{
 	value::Value,
+   error::RuntimeError,
 	environment::Environment
 };
 use std::{
 	cell::RefCell,
 	collections::HashMap,
-	rc::Rc
+	rc::Rc,
 };
 
-#[derive(Debug)]
-pub struct Error {}
-
-#[derive(Debug)]
-#[allow(dead_code)]
-pub enum RuntimeError {
-    Generic(String),
-    UndefinedVariable(String),
-    TypeError(String),
-    DivisionByZero,
-    Return(Value), 
-	 Print(String),
-    Break,
-    Continue,
-}
-
+// 解释器 执行合法的 AST 
 pub struct Interpreter {
     /// 当前执行环境的引用计数指针，用于变量查找和赋值
     pub environment: Rc<RefCell<Environment>>,
@@ -65,8 +51,9 @@ impl Interpreter {
             let result = self.evaluate(&expr);
         
             match result {
-                Err(RuntimeError::Break) => Err(RuntimeError::Generic("Cannot use 'break' outside of a loop.".into())),
-                Err(RuntimeError::Continue) => Err(RuntimeError::Generic("Cannot use 'continue' outside of a loop.".into())),
+                // 如果到了顶层还能捕获到 Break| Continue，说明 Parser 有 Bug，此时应该 panic 或者报 "Internal Error"
+                Err(RuntimeError::Break) => panic!("Critical Error: Parser allowed 'break' outside loop!"),
+                Err(RuntimeError::Continue) => panic!("Critical Error: Parser allowed 'continue' outside loop!"),
                 _ => result,
             }
         } else {
@@ -142,7 +129,6 @@ impl Interpreter {
 
                     Operator::BitwiseAnd => self.eval_bitwise(left, right, |a, b| a & b),
                     Operator::BitwiseOr  => self.eval_bitwise(left, right, |a, b| a | b),
-                    // 添加异或运算符支持
                     Operator::BitwiseXor => self.eval_bitwise(left, right, |a, b| a ^ b),
 
                     // 比较运算
@@ -210,9 +196,7 @@ impl Interpreter {
         
                 while self.evaluate(condition)?.is_truthy() {
                     match self.evaluate(body) {
-                        Ok(val) => {
-                            result = val; // 更新最后一条语句的值
-                        }
+                        Ok(val) => result = val, // 更新最后一条语句的值
                         Err(e) => match e {
                             RuntimeError::Break => break,
                             // Note: 借用语言机制 continue 进入下一次循环条件检查

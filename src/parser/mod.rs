@@ -1,3 +1,4 @@
+// parser 的职责是确保 AST 合法的
 pub mod error;
 pub mod expression;
 pub mod parse;
