@@ -8,6 +8,7 @@ use crate::{
 pub struct ParseHelper {
     pub tokens: Tokens,
     pub index: usize,
+    pub loop_depth: usize,
 }
 
 impl ParseHelper {
@@ -308,7 +309,11 @@ impl Parser {
     /// * `Parser` - 新的解析器实例
     pub fn new(tokens: Tokens) -> Self {
         Self {
-            helper: ParseHelper { tokens, index: 0 },
+            helper: ParseHelper {
+                tokens,
+                index: 0,
+                loop_depth: 0,
+            },
         }
     }
 

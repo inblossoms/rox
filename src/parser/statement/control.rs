@@ -34,7 +34,17 @@ impl ParseHelper {
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
         let condition = self.parse_expression()?;
         self.consume(TokenType::RightParen, "Expect ')' after condition.")?;
-        let body = self.parse_statement()?;
+
+        self.loop_depth += 1; // 进入循环
+
+        // 解析 body 的过程中可能存在递归调用 parse_statement -> parse_break
+        // 所以这里不着急 ? 返回，先拿到结果
+        let body_result = self.parse_statement();
+
+        // 退出循环，无论 body 是否解析成功，都主动还原深度（即使解析失败）
+        self.loop_depth -= 1;
+
+        let body = body_result?; // 在这里处理错误
 
         Ok(Expr::While {
             condition: Box::new(condition),
@@ -74,8 +84,11 @@ impl ParseHelper {
         self.consume(TokenType::RightParen, "Expect ')' after for clauses.")?;
 
         // 4. 循环体
-        let body = self.parse_statement()?;
+        self.loop_depth += 1;
+        let body_result = self.parse_statement();
+        self.loop_depth -= 1;
 
+        let body = body_result?;
         Ok(Expr::For {
             initializer,
             condition,
@@ -86,12 +99,19 @@ impl ParseHelper {
 
     /// 解析 break 语句
     pub fn parse_break_statement(&mut self) -> Result<Expr, Error> {
+        if self.loop_depth == 0 {
+            return Err(self.error(self.previous(), "Cannot use 'break' outside of a loop."));
+        }
+
         self.consume(TokenType::Semicolon, "Expect ';' after 'break'.")?;
         Ok(Expr::Break)
     }
 
     /// 解析 continue 语句
     pub fn parse_continue_statement(&mut self) -> Result<Expr, Error> {
+        if self.loop_depth == 0 {
+            return Err(self.error(self.previous(), "Cannot use 'continue' outside of a loop."));
+        }
         self.consume(TokenType::Semicolon, "Expect ';' after 'break'.")?;
         Ok(Expr::Continue)
     }

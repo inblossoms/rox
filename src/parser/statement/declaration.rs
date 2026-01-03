@@ -47,7 +47,19 @@ impl ParseHelper {
         self.consume(TokenType::RightParen, "Expect ')' after parameters.")?;
 
         self.consume(TokenType::LeftBrace, "Expect '{' before function body.")?;
-        let body_stmts = self.parse_block()?;
+
+        let previous_loop_depth = self.loop_depth;
+        // 进入函数体重置循环深度 因为函数体局部作用域隔离了外部循环
+        // while (true) {
+        //     fun test() {
+        //         break; // 语法错误！虽然行为上被包含在 while 的花括号里，但逻辑上在函数里
+        //     }
+        // }
+        self.loop_depth = 0;
+        let body_stmts_result = self.parse_block();
+        self.loop_depth = previous_loop_depth;
+
+        let body_stmts = body_stmts_result?;
 
         Ok(Expr::Function {
             name,
