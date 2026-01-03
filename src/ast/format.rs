@@ -85,8 +85,8 @@ pub fn format_expr(expr: &Expr) -> String {
 
             result
         }
-        Expr::Return { expr } => {
-            format!("return {}", format_expr(expr))
+        Expr::Return { value, .. } => {
+            format!("return {}", format_expr(value.as_ref().unwrap()))
         }
         Expr::Block { body } => {
             let mut result = "{".to_string();

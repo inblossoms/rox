@@ -9,6 +9,7 @@ pub struct ParseHelper {
     pub tokens: Tokens,
     pub index: usize,
     pub loop_depth: usize,
+    pub func_depth: usize,
 }
 
 impl ParseHelper {
@@ -259,6 +260,9 @@ impl ParseHelper {
             let statements = self.parse_block()?;
             return Ok(Expr::Block { body: statements });
         }
+        if self.match_token(&[TokenType::Return]) {
+            return self.parse_return_statement();
+        }
         if self.match_token(&[TokenType::For]) {
             return self.parse_for_statement();
         }
@@ -313,6 +317,7 @@ impl Parser {
                 tokens,
                 index: 0,
                 loop_depth: 0,
+                func_depth: 0,
             },
         }
     }

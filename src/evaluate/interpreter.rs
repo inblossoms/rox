@@ -320,7 +320,6 @@ impl Interpreter {
 
                         // 6. 执行函数体：保存当前解释器的环境，以便函数执行完后恢复
                         let previous_env = self.environment.clone();
-
                         // 切换解释器环境指向新的函数环境
                         self.environment = func_env;
 
@@ -348,7 +347,7 @@ impl Interpreter {
                     // Value::NativeFunction { ... } => { ... }
                     _ => Err(RuntimeError::TypeError(format!("Can only call functions, got {}", callee))),
                 }
-            }
+				}
             Expr::List { elements } => {
                 Ok(Value::List(self.evaluate_elements(elements)?))
             }
@@ -414,10 +413,15 @@ impl Interpreter {
                 self.environment.borrow_mut().assign(name, new_val.clone());
                 Ok(new_val)
             }
-            Expr::Return { expr } => {
-                let value = self.evaluate(expr)?;
-                // 中断执行流
-                Err(RuntimeError::Return(value))
+            Expr::Return { value, .. } => {
+                let return_val = if let Some(expr) = value {
+                   self.evaluate(expr)? // 如果返回的是有效值，evaluate 会递归处理
+                } else {
+                   Value::Nil // 允许返回空
+                };
+        
+		          // 否则抛出特殊错误
+                Err(RuntimeError::Return(return_val))
             }
             Expr::VarDecl { name, initializer } => {
                 let value = self.evaluate(initializer)?;
@@ -425,7 +429,7 @@ impl Interpreter {
                 self.environment.borrow_mut().define(name.clone(), value);
                 Ok(Value::Nil)
             },
-				Expr::Print{expr} => {self.execute_print(expr)},
+				Expr::Print{expr} => self.execute_print(expr),
 		  }
     }
 	

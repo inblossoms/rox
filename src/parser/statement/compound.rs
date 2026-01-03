@@ -25,4 +25,22 @@ impl ParseHelper {
             expr: Box::new(expr),
         })
     }
+
+    pub fn parse_return_statement(&mut self) -> Result<Expr, Error> {
+        let keyword = self.previous().clone();
+
+        if self.func_depth == 0 {
+            self.error(&keyword, "Cannot return from top-level code.");
+        }
+
+        let value = if !self.check(TokenType::Semicolon) {
+            Some(Box::new(self.parse_expression()?))
+        } else {
+            None
+        };
+
+        self.consume(TokenType::Semicolon, "Expect ';' after return value.")?;
+
+        Ok(Expr::Return { keyword, value })
+    }
 }

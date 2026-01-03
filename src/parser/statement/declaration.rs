@@ -47,8 +47,9 @@ impl ParseHelper {
         self.consume(TokenType::RightParen, "Expect ')' after parameters.")?;
 
         self.consume(TokenType::LeftBrace, "Expect '{' before function body.")?;
-
+        let previous_func_depth = self.func_depth;
         let previous_loop_depth = self.loop_depth;
+        self.func_depth += 1;
         // 进入函数体重置循环深度 因为函数体局部作用域隔离了外部循环
         // while (true) {
         //     fun test() {
@@ -57,6 +58,7 @@ impl ParseHelper {
         // }
         self.loop_depth = 0;
         let body_stmts_result = self.parse_block();
+        self.func_depth = previous_func_depth;
         self.loop_depth = previous_loop_depth;
 
         let body_stmts = body_stmts_result?;

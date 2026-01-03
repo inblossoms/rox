@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+use crate::tokenizer::{Literal, Token, TokenType};
+
 use super::Operator;
 
 #[derive(Debug)]
@@ -68,7 +70,8 @@ pub enum Expr {
         body: Vec<Expr>,
     },
     Return {
-        expr: Box<Expr>,
+        keyword: Token,           // 保留 token 用于报错定位
+        value: Option<Box<Expr>>, // 可能是 None
     },
     Block {
         body: Vec<Expr>,
@@ -164,7 +167,10 @@ impl Expr {
         Expr::Function { name, args, body }
     }
     pub fn return_(expr: Expr) -> Expr {
-        Expr::Return { expr: expr.into() }
+        Expr::Return {
+            keyword: Token::new(TokenType::Return, "return", 1, Literal::Nil),
+            value: Some(Box::new(expr)),
+        }
     }
     pub fn block(body: Vec<Expr>) -> Expr {
         Expr::Block { body }
