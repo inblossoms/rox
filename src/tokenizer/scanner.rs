@@ -285,7 +285,8 @@ impl Scanner {
         }
 
         let token_type = match self.lexeme(false).as_str() {
-            "and" => TokenType::BitAnd,
+            "and" => TokenType::And,
+            "or" => TokenType::Or,
             "class" => TokenType::Class,
             "else" => TokenType::Else,
             "false" => TokenType::False,
@@ -293,7 +294,6 @@ impl Scanner {
             "fun" => TokenType::Fun,
             "if" => TokenType::If,
             "nil" => TokenType::Nil,
-            "or" => TokenType::BitOr,
             "print" => TokenType::Print,
             "return" => TokenType::Return,
             "super" => TokenType::Super,
