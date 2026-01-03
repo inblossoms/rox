@@ -624,7 +624,10 @@ impl Interpreter {
 	 
 	 fn execute_print(&mut self, expr: &Expr) -> Result<Value, RuntimeError> {
 		let value = self.evaluate(expr)?;
-		Ok(Value::Print(value.to_string()))
+		println!("{}", value);
+		// print 语句是一个副作用语句。职责是立刻将内容输出到 IO（控制台），
+		// 并通常返回 Nil（表示语句执行完成，没有产生供后续计算的值）。
+		Ok(Value::Nil) 
 	 }
 }
 
