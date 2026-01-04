@@ -62,14 +62,14 @@ impl fmt::Display for Value {
 impl Value {
     /// 判断值是否为真值（Truthy）
     ///
-    /// 在Lox语言中，nil和false为假值，其他所有值都是真值
-    ///
     /// # 返回值
     /// * `bool` - 值是否为真值
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Nil => false,
             Value::Boolean(b) => *b,
+            Value::String(s) => !s.is_empty(),
+            Value::Number(n) => *n != 0.0,
             _ => true,
         }
     }
