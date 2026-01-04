@@ -163,7 +163,7 @@ impl Scanner {
                 //  } else {
                 //      TokenType::Caret
                 //  };
-                self.add_token(TokenType::BitXor);
+                self.add_token(TokenType::Xor);
             }
             '<' => {
                 let token_type = if self.match_char('=') {
@@ -200,18 +200,18 @@ impl Scanner {
             }
             '&' => {
                 let toke_type = if self.match_char('&') {
-                    TokenType::And
+                    TokenType::LogicalAnd
                 } else {
-                    TokenType::BitAnd
+                    TokenType::Ampersand
                 };
 
                 self.add_token(toke_type);
             }
             '|' => {
                 let toke_type = if self.match_char('|') {
-                    TokenType::Or
+                    TokenType::LogicalOr
                 } else {
-                    TokenType::BitOr
+                    TokenType::Pipe
                 };
                 self.add_token(toke_type);
             }

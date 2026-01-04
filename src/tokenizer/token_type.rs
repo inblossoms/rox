@@ -16,11 +16,13 @@ pub enum TokenType {
     Semicolon,
     Slash,
     Star,
-    And,
+    LogicalAnd, // &&
+    LogicalOr,
+    Ampersand, // &
+    Pipe,
+    Xor,
+    And, // and
     Or,
-    BitAnd,
-    BitXor,
-    BitOr,
     Percent,
 
     // one or two character

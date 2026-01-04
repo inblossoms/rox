@@ -57,7 +57,7 @@ impl ParseHelper {
     pub fn parse_bitwise_or(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_bitwise_xor()?;
 
-        while self.match_token(&[TokenType::BitOr]) {
+        while self.match_token(&[TokenType::Pipe]) {
             let op = Operator::BitwiseOr;
             let right = self.parse_bitwise_xor()?; // 右结合性交给循环，右侧调用下一层级
             expr = Expr::Binary {
@@ -74,7 +74,7 @@ impl ParseHelper {
     pub fn parse_bitwise_xor(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_bitwise_and()?;
 
-        while self.match_token(&[TokenType::BitXor]) {
+        while self.match_token(&[TokenType::Xor]) {
             let op = Operator::BitwiseXor;
             let right = self.parse_bitwise_and()?;
             expr = Expr::Binary {
@@ -91,7 +91,7 @@ impl ParseHelper {
     pub fn parse_bitwise_and(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_term()?; // 调用下一层级：加减法
 
-        while self.match_token(&[TokenType::BitAnd]) {
+        while self.match_token(&[TokenType::Ampersand]) {
             let op = Operator::BitwiseAnd;
             let right = self.parse_term()?;
             expr = Expr::Binary {

@@ -17,6 +17,8 @@ pub enum Operator {
     BitwiseXor,
     LogicalOr,
     LogicalAnd,
+    AndKeyword,
+    OrKeyword,
     BitwiseAnd,
     BitwiseOr,
 }

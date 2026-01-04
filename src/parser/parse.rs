@@ -197,7 +197,7 @@ impl ParseHelper {
     pub fn parse_or(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_and()?;
 
-        while self.match_token(&[TokenType::Or]) {
+        while self.match_token(&[TokenType::LogicalOr, TokenType::Or]) {
             let op = Operator::LogicalOr;
             let right = self.parse_and()?;
             expr = Expr::Binary {
@@ -213,7 +213,8 @@ impl ParseHelper {
     pub fn parse_and(&mut self) -> Result<Expr, Error> {
         let mut expr = self.parse_equality()?;
 
-        while self.match_token(&[TokenType::And]) {
+        // and 和 && 采用相同的逻辑
+        while self.match_token(&[TokenType::LogicalAnd, TokenType::And]) {
             let op = Operator::LogicalAnd;
             let right = self.parse_equality()?;
             expr = Expr::Binary {
