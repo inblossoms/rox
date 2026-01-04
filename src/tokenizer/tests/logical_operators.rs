@@ -7,10 +7,10 @@ fn logical_and_bitwise_operators() {
     assert_eq!(
         tokens.unwrap().tokens,
         vec![
-            Token::new(TokenType::BitAnd, "&", 1, Literal::None),
-            Token::new(TokenType::And, "&&", 1, Literal::None),
-            Token::new(TokenType::BitOr, "|", 1, Literal::None),
-            Token::new(TokenType::Or, "||", 1, Literal::None),
+            Token::new(TokenType::Ampersand, "&", 1, Literal::None),
+            Token::new(TokenType::LogicalAnd, "&&", 1, Literal::None),
+            Token::new(TokenType::Pipe, "|", 1, Literal::None),
+            Token::new(TokenType::LogicalOr, "||", 1, Literal::None),
             Token::new(TokenType::Eof, "", 1, Literal::None),
         ]
     )
