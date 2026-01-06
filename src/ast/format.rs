@@ -1,192 +1,191 @@
 #![allow(dead_code)]
-use super::expr::Expr;
+use super::Operator;
+use crate::ast::{Expr, Stmt};
 
+/// 格式化表达式 (返回值)
 pub fn format_expr(expr: &Expr) -> String {
     match expr {
-        Expr::Number { value } => format!("{}", value),
-        Expr::String { value } => format!("{}", value),
-        Expr::Boolean { value } => format!("{}", value),
-        Expr::Nil => "nil".to_string(),
+        Expr::Number { value } => value.clone(), // number: String, not f64
+        Expr::String { value } => format!("\"{}\"", value),
+        Expr::Boolean { value } => value.to_string(),
+        Expr::Nil => "nil".to_string(), // 做为语言类型系统的一部分，可以被赋值给变量、作为参数传递、被打印。不同于 Stmt::Nil 后者是语法结构，用于满足语法要求，但什么都不做。
+
         Expr::List { elements } => {
-            let mut result = "(".to_string();
-            for (_i, element) in elements.iter().enumerate() {
-                result += &format_expr(element);
-            }
-
-            result += ")";
-
-            result
+            let elems: Vec<String> = elements.iter().map(format_expr).collect();
+            format!("[{}]", elems.join(", "))
         }
         Expr::Dict { elements } => {
-            let mut result = "(".to_string();
-            for (_i, (key, value)) in elements.iter().enumerate() {
-                result += &format_expr(key);
-                result += ":";
-                result += &format_expr(value);
-            }
-            result += ")";
-
-            result
+            let elems: Vec<String> = elements
+                .iter()
+                .map(|(k, v)| format!("{}: {}", format_expr(k), format_expr(v)))
+                .collect();
+            format!("{{{}}}", elems.join(", "))
         }
         Expr::Tuple { elements } => {
-            let mut result = "(".to_string();
-            for (_i, element) in elements.iter().enumerate() {
-                result += &format_expr(element);
-            }
-
-            result += ")";
-
-            result
+            let elems: Vec<String> = elements.iter().map(format_expr).collect();
+            format!("({})", elems.join(", "))
         }
-        Expr::Variable { name } => name.clone(),
-        Expr::AssignOp { op, name, expr } => {
-            format!("{} {} {}", name, format_operator(&op), format_expr(expr))
+
+        Expr::Variable { name, .. } => name.lexeme.clone(), // 忽略 id
+
+        Expr::Assign { name, expr, .. } => {
+            format!("{} = {}", name.lexeme, format_expr(expr))
         }
+
+        Expr::AssignOp { op, name, expr, .. } => {
+            format!(
+                "{} {} {}",
+                name.lexeme,
+                format_operator(op),
+                format_expr(expr)
+            )
+        }
+
         Expr::Binary { op, left, right } => {
             format!(
                 "({} {} {})",
                 format_expr(left),
-                format_operator(&op),
+                format_operator(op),
                 format_expr(right)
             )
         }
-        Expr::Unary { op, expr } => {
-            format!("({} {})", format_operator(&op), format_expr(expr))
+
+        Expr::Logical { op, left, right } => {
+            format!(
+                "({} {} {})",
+                format_expr(left),
+                format_operator(op),
+                format_expr(right)
+            )
         }
+
+        Expr::Unary { op, expr } => {
+            format!("({}{})", format_operator(op), format_expr(expr))
+        }
+
         Expr::Grouping { expr } => {
             format!("(group {})", format_expr(expr))
         }
-        Expr::Identifier { name } => name.clone(),
-        Expr::Assign { name, expr } => {
-            format!("{} = {};", name, format_expr(expr))
-        }
-        Expr::Call { name, args } => {
-            let mut result = name.clone();
-            result += "(";
-            for (_i, arg) in args.iter().enumerate() {
-                result += &format_expr(arg);
-                result += ",";
-            }
-            result.pop();
-            result += ")";
-            result
-        }
-        Expr::Function { name, args, body } => {
-            let mut result = "fn ".to_string() + &name.clone();
-            result += "(";
-            for (_i, arg) in args.iter().enumerate() {
-                result += arg;
-            }
-            result += ") {";
-            for (_i, stmt) in body.iter().enumerate() {
-                result += &format_stmt(stmt);
-            }
-            result += "}";
 
-            result
+        Expr::Call { callee, args, .. } => {
+            let args_str: Vec<String> = args.iter().map(format_expr).collect();
+            format!("{}({})", format_expr(callee), args_str.join(", "))
         }
-        Expr::Return { value, .. } => {
-            format!("return {}", format_expr(value.as_ref().unwrap()))
-        }
-        Expr::Block { body } => {
-            let mut result = "{".to_string();
-            for (_i, stmt) in body.iter().enumerate() {
-                result += &format_stmt(stmt);
-            }
-            result += "}";
+    }
+}
 
-            result
+/// 格式化语句 (执行动作)
+pub fn format_stmt(stmt: &Stmt) -> String {
+    match stmt {
+        Stmt::Expression { expr } => {
+            format!("{};", format_expr(expr))
         }
-        Expr::If {
+        Stmt::VarDecl { name, initializer } => match initializer {
+            Some(expr) => format!("var {} = {};", name.lexeme, format_expr(expr)),
+            None => format!("var {};", name.lexeme),
+        },
+        Stmt::Function { name, params, body } => {
+            let params_str: Vec<String> = params.iter().map(|t| t.lexeme.clone()).collect();
+
+            let body_str = body
+                .iter()
+                .map(|s| format_stmt(s))
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!(
+                "fun {}({}) {{ {} }}",
+                name.lexeme,
+                params_str.join(", "),
+                body_str
+            )
+        }
+        Stmt::Block { body } => {
+            let parts: Vec<String> = body.iter().map(format_stmt).collect();
+
+            format!("{{ {} }}", parts.join(" "))
+        }
+        Stmt::If {
             condition,
             then_branch,
             else_branch,
         } => {
-            let mut result = "if ".to_string();
-            result += &format_expr(condition);
-            result += &format_stmt(then_branch);
-
-            if let Some(else_branch) = else_branch {
-                result += " else";
-                result += &format_stmt(else_branch);
+            let mut result = format!(
+                "if ({}) {}",
+                format_expr(condition),
+                format_stmt(then_branch)
+            );
+            if let Some(else_b) = else_branch {
+                result += &format!(" else {}", format_stmt(else_b));
             }
-
             result
         }
-        Expr::While { condition, body } => {
-            let mut result = "while ".to_string();
-
-            result += &format_expr(condition);
-            result += &format_stmt(body);
-
-            result
+        Stmt::While { condition, body } => {
+            format!("while ({}) {}", format_expr(condition), format_stmt(body))
         }
-        Expr::For {
+        Stmt::For {
             initializer,
             condition,
             increment,
             body,
         } => {
-            let mut result = "for ".to_string();
+            let init_str = match initializer {
+                Some(stmt) => format_stmt(stmt), // Stmt 自带分号 (VarDecl 或 ExprStmt)
+                None => ";".to_string(),
+            };
+            let cond_str = condition
+                .as_ref()
+                .map(|c| format_expr(c))
+                .unwrap_or("".to_string());
+            let incr_str = increment
+                .as_ref()
+                .map(|i| format_expr(i))
+                .unwrap_or("".to_string());
 
-            result += &format_expr(initializer.as_ref().unwrap());
-            result += &format_expr(condition.as_ref().unwrap());
-            result += &format_expr(increment.as_ref().unwrap());
-            result += &format_stmt(body);
-
-            result
+            format!(
+                "for ({} {}; {}) {}",
+                init_str,
+                cond_str,
+                incr_str,
+                format_stmt(body)
+            )
         }
-        Expr::VarDecl { name, initializer } => {
-            let mut result = "var ".to_string();
-
-            result += name;
-            result += " = ";
-            result += &format_expr(initializer);
-
-            result
+        Stmt::Print { expr } => {
+            format!("print {};", format_expr(expr))
         }
-        Expr::Break => "break".to_string(),
-        Expr::Continue => "continue".to_string(),
-        Expr::Print { expr } => "print ".to_string() + &format_expr(expr),
-    }
-}
-fn format_stmt(stmt: &Expr) -> String {
-    match stmt {
-        Expr::Block { body } => {
-            let mut result = " {".to_string();
-            for (_i, stmt) in body.iter().enumerate() {
-                result += &format_stmt(stmt);
-            }
-            result += "}";
-
-            result
-        }
-        _ => format_expr(stmt),
+        Stmt::Return { value, .. } => match value {
+            Some(expr) => format!("return {};", format_expr(expr)),
+            None => "return;".to_string(),
+        },
+        Stmt::Break => "break;".to_string(),
+        Stmt::Continue => "continue;".to_string(),
+        Stmt::Empty => ";".to_string(),
     }
 }
 
-fn format_operator(op: &super::Operator) -> &'static str {
+/// 格式化操作符
+pub fn format_operator(op: &Operator) -> &'static str {
     match op {
-        super::Operator::Add => "+",
-        super::Operator::Sub => "-",
-        super::Operator::Mul => "*",
-        super::Operator::Div => "/",
-        super::Operator::Mod => "%",
-        super::Operator::Assign => "=",
-        super::Operator::AddAssign => "+=",
-        super::Operator::Not => "!",
-        super::Operator::NotEqual => "!=",
-        super::Operator::Equal => "==",
-        super::Operator::Greater => ">",
-        super::Operator::GreaterEqual => ">=",
-        super::Operator::Less => "<",
-        super::Operator::LessEqual => "<=",
-        super::Operator::LogicalAnd => "&&",
-        super::Operator::AndKeyword => "&&",
-        super::Operator::LogicalOr => "||",
-        super::Operator::OrKeyword => "||",
-        super::Operator::BitwiseXor => "^",
-        super::Operator::BitwiseOr => "|",
-        super::Operator::BitwiseAnd => "&",
+        Operator::Add => "+",
+        Operator::Sub => "-",
+        Operator::Mul => "*",
+        Operator::Div => "/",
+        Operator::Mod => "%",
+        Operator::Assign => "=",
+        Operator::AddAssign => "+=",
+        Operator::Not => "!",
+        Operator::NotEqual => "!=",
+        Operator::Equal => "==",
+        Operator::Greater => ">",
+        Operator::GreaterEqual => ">=",
+        Operator::Less => "<",
+        Operator::LessEqual => "<=",
+        Operator::LogicalAnd => "&&",
+        Operator::LogicalOr => "||",
+        Operator::AndKeyword => "&&",
+        Operator::OrKeyword => "||",
+        Operator::BitwiseXor => "^",
+        Operator::BitwiseOr => "|",
+        Operator::BitwiseAnd => "&",
+        Operator::BitwiseNot => "~",
     }
 }

@@ -1,15 +1,22 @@
 #![allow(dead_code)]
-use crate::tokenizer::{Literal, Token, TokenType};
-
 use super::Operator;
+use crate::{
+    ast::{helper::generate_token, stmt::Stmt},
+    tokenizer::{Token, TokenType},
+};
 
 #[derive(Debug)]
 pub struct AST {
-    pub top: Option<Expr>,
+    pub body: Vec<Stmt>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ExprId(pub usize);
+
+/// Expr：表达式节点，程序中所有可能的表达式类型。
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    // literals
     Number {
         value: String,
     },
@@ -20,6 +27,8 @@ pub enum Expr {
         value: bool,
     },
     Nil,
+
+    // collections
     List {
         elements: Vec<Expr>,
     },
@@ -29,14 +38,29 @@ pub enum Expr {
     Tuple {
         elements: Vec<Expr>,
     },
+
+    // variable reading
     Variable {
-        name: String,
+        id: ExprId,
+        name: Token,
     },
-    AssignOp {
-        op: Operator,
-        name: String,
+
+    // variable writing
+    Assign {
+        id: ExprId,
+        name: Token,
         expr: Box<Expr>,
     },
+
+    // compound assignment
+    AssignOp {
+        id: ExprId,
+        op: Operator,
+        name: Token,
+        expr: Box<Expr>,
+    },
+
+    // operations
     Binary {
         op: Operator,
         left: Box<Expr>,
@@ -46,154 +70,142 @@ pub enum Expr {
         op: Operator,
         expr: Box<Expr>,
     },
+
+    // 逻辑运算具有短路行为，不同于 Binary
+    Logical {
+        op: Operator,
+        left: Box<Expr>,
+        right: Box<Expr>,
+    },
     Grouping {
         expr: Box<Expr>,
     },
-    Identifier {
-        name: String,
-    },
-    VarDecl {
-        name: String,
-        initializer: Box<Expr>,
-    },
-    Assign {
-        name: String,
-        expr: Box<Expr>,
-    },
+
+    // 调用
     Call {
-        name: String,
+        id: ExprId, // 函数名本质上也是变量引用
+        callee: Box<Expr>,
         args: Vec<Expr>,
     },
-    Function {
-        name: String,
-        args: Vec<String>,
-        body: Vec<Expr>,
-    },
-    Return {
-        keyword: Token,           // 保留 token 用于报错定位
-        value: Option<Box<Expr>>, // 可能是 None
-    },
-    Block {
-        body: Vec<Expr>,
-    },
-    If {
-        condition: Box<Expr>,
-        then_branch: Box<Expr>,
-        else_branch: Option<Box<Expr>>,
-    },
-    While {
-        condition: Box<Expr>,
-        body: Box<Expr>,
-    },
-    For {
-        initializer: Option<Box<Expr>>,
-        condition: Option<Box<Expr>>,
-        increment: Option<Box<Expr>>,
-        body: Box<Expr>,
-    },
-    Print {
-        expr: Box<Expr>,
-    },
-    Break,
-    Continue,
 }
 
-#[allow(dead_code)]
 impl Expr {
     pub fn number(value: impl Into<String>) -> Expr {
         Expr::Number {
             value: value.into(),
         }
     }
+
     pub fn string(value: impl Into<String>) -> Expr {
         Expr::String {
             value: value.into(),
         }
     }
+
     pub fn boolean(value: bool) -> Expr {
         Expr::Boolean { value }
     }
+
+    /// 空值对象
     pub fn nil() -> Expr {
         Expr::Nil
     }
+
     pub fn list(elements: Vec<Expr>) -> Expr {
         Expr::List { elements }
     }
+
     pub fn dict(elements: Vec<(Expr, Expr)>) -> Expr {
         Expr::Dict { elements }
     }
+
     pub fn tuple(elements: Vec<Expr>) -> Expr {
         Expr::Tuple { elements }
     }
-    pub fn variable(name: String) -> Expr {
-        Expr::Variable { name }
-    }
-    pub fn assign_op(op: Operator, name: String, expr: Expr) -> Expr {
-        Expr::AssignOp {
-            op,
+
+    /// 创建变量对象
+    pub fn variable(name: Token) -> Expr {
+        Expr::Variable {
+            id: ExprId(0),
             name,
-            expr: expr.into(),
         }
     }
+
+    /// 通过给定的字符串切片创建一个变量
+    pub fn variable_str(name: &str) -> Expr {
+        Expr::Variable {
+            id: ExprId(0),
+            name: generate_token(TokenType::Identifier, name),
+        }
+    }
+
+    pub fn assign(name: Token, expr: Expr) -> Expr {
+        Expr::Assign {
+            id: ExprId(0),
+            name,
+            expr: Box::new(expr),
+        }
+    }
+
+    pub fn assign_op(op: Operator, name: &str, expr: Expr) -> Expr {
+        Expr::AssignOp {
+            id: ExprId(0),
+            name: generate_token(TokenType::Identifier, name),
+            op,
+            expr: Box::new(expr),
+        }
+    }
+
     pub fn binary(op: Operator, left: Expr, right: Expr) -> Expr {
         Expr::Binary {
             op,
-            left: left.into(),
-            right: right.into(),
+            left: Box::new(left),
+            right: Box::new(right),
         }
     }
+
     pub fn unary(op: Operator, expr: Expr) -> Expr {
         Expr::Unary {
             op,
-            expr: expr.into(),
+            expr: Box::new(expr),
         }
     }
+
+    pub fn logical(op: Operator, left: Expr, right: Expr) -> Expr {
+        Expr::Logical {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    }
+
     pub fn grouping(expr: Expr) -> Expr {
-        Expr::Grouping { expr: expr.into() }
-    }
-    pub fn identifier(name: String) -> Expr {
-        Expr::Identifier { name }
-    }
-    pub fn assign(name: String, expr: Expr) -> Expr {
-        Expr::Assign {
-            name,
-            expr: expr.into(),
+        Expr::Grouping {
+            expr: Box::new(expr),
         }
     }
-    pub fn call(name: String, args: Vec<Expr>) -> Expr {
-        Expr::Call { name, args }
-    }
-    pub fn function(name: String, args: Vec<String>, body: Vec<Expr>) -> Expr {
-        Expr::Function { name, args, body }
-    }
-    pub fn return_(expr: Expr) -> Expr {
-        Expr::Return {
-            keyword: Token::new(TokenType::Return, "return", 1, Literal::Nil),
-            value: Some(Box::new(expr)),
+
+    pub fn call(callee: Expr, args: Vec<Expr>) -> Expr {
+        Expr::Call {
+            id: ExprId(0),
+            // callee: Token
+            // 当 callee 类型限制为 Token 时，这将意味着只支持通过变量名来调用
+            callee: Box::new(callee),
+            args,
         }
     }
-    pub fn block(body: Vec<Expr>) -> Expr {
-        Expr::Block { body }
-    }
-    pub fn if_(condition: Expr, then_branch: Expr, else_branch: Option<Expr>) -> Expr {
-        Expr::If {
-            condition: condition.into(),
-            then_branch: then_branch.into(),
-            else_branch: else_branch.map(|e| Box::new(e)),
+
+    /// 对指定的函数进行调用
+    pub fn call_str(name: &str, args: Vec<Expr>) -> Expr {
+        Expr::Call {
+            id: ExprId(0),
+            callee: Box::new(Expr::variable_str(name)),
+            args,
         }
     }
-    pub fn while_(condition: Expr, body: Expr) -> Expr {
-        Expr::While {
-            condition: condition.into(),
-            body: body.into(),
-        }
-    }
-    pub fn break_() -> Expr {
-        Expr::Break
-    }
-    pub fn continue_() -> Expr {
-        Expr::Continue
-    }
+
+    // helper
+
     pub fn is_number(&self) -> bool {
         matches!(self, Expr::Number { .. })
     }
@@ -207,7 +219,3 @@ impl Expr {
         matches!(self, Expr::Nil)
     }
 }
-
-#[cfg(test)]
-#[path = "tests/mod.rs"]
-mod ast_tests;

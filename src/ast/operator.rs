@@ -1,4 +1,5 @@
 #[derive(Debug, PartialEq, Clone)]
+#[allow(dead_code)]
 pub enum Operator {
     Add,
     Sub,
@@ -21,4 +22,5 @@ pub enum Operator {
     OrKeyword,
     BitwiseAnd,
     BitwiseOr,
+    BitwiseNot,
 }
