@@ -5,3 +5,6 @@ pub mod value;
 
 pub use interpreter::Interpreter;
 pub use value::Value;
+
+#[cfg(test)]
+mod tests;

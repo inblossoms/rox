@@ -1,4 +1,4 @@
-use crate::{ast::Expr, evaluate::environment::Environment};
+use crate::{ast::Stmt, evaluate::environment::Environment};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -7,14 +7,14 @@ pub enum Value {
     String(String),
     Boolean(bool),
     Nil,
-    // 函数可以作为值传递
-    // 包含：函数名、参数列表、函数体、以及定义时的环境(闭包)
+
     Function {
         name: String,
         args: Vec<String>,
-        body: Vec<Expr>,
+        body: Vec<Stmt>,
         closure: Rc<RefCell<Environment>>,
     },
+
     List(Vec<Value>),
     Tuple(Vec<Value>),
     Dict(HashMap<String, Value>),

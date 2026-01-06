@@ -1,78 +1,225 @@
-use crate::ast::{AST, Expr, Operator};
-use crate::evaluate::{
-	value::Value,
-   error::RuntimeError,
-	environment::Environment
-};
-use std::{
-	cell::RefCell,
-	collections::HashMap,
-	rc::Rc,
-};
+use crate::ast::{AST, Expr, ExprId, Operator, Stmt};
+use crate::evaluate::{environment::Environment, error::RuntimeError, value::Value};
+use crate::tokenizer::Token;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-// 解释器 执行合法的 AST 
+/// 解释器 (Interpreter)
+///
+/// 负责遍历 AST (抽象语法树)，执行语句 (Stmt) 并计算表达式 (Expr) 的值。
+/// 运行时核心(v8)，维护程序运行时状态。
 pub struct Interpreter {
-    /// 当前执行环境的引用计数指针，用于变量查找和赋值
+    /// **当前**执行环境 (Current Environment)
+    ///
+    /// 指向当前代码正在执行的作用域。
+    /// - 随着代码进入/退出块 (`{...}`) 或函数调用，这个字段会不断更新，
+    ///   指向新的子环境或恢复到父环境。
+    /// - 使用 `Rc<RefCell>` 是为了在函数闭包和解释器之间共享环境的所有权，
+    ///   并支持修改（定义变量）。
     pub environment: Rc<RefCell<Environment>>,
+
+    /// **全局**环境 (Global Environment)
+    ///
+    /// 永远指向最顶层的作用域。
+    /// - 当解释器启动时，`environment` 和 `globals` 指向同一个环境。
+    /// - 随着作用域加深，`environment` 会变化，但 `globals` 保持不变。
+    /// - **用途**：
+    ///   1. 用于定义和查找全局变量（无需递归回溯）。
+    ///   2. 作为 `look_up_variable` 的兜底逻辑：如果 Resolver 没在 `locals`
+    ///      中记录距离，则默认认为该变量是全局的。
+    ///   3. 存放 Native Functions（如 `clock()`）。
+    pub globals: Rc<RefCell<Environment>>,
+
+    /// 变量作用域距离表 (Variable Scope Distance Table)
+    ///
+    /// 存储由 `Resolver` (语义分析阶段) 计算出的静态作用域信息。
+    /// - **Key (`ExprId`)**: 源代码中某个具体位置的变量引用（AST 节点 ID）。
+    /// - **Value (`usize`)**: 该变量定义在距离当前环境多少层之外 (Hops/Distance)。
+    ///
+    /// 解释器在执行 `Expr::Variable` 或 `Expr::Assign` 时，会先查这张表：
+    /// - 如果查到了：使用 `environment.get_at(distance)` 精确获取变量（词法作用域）。
+    /// - 如果没查到：假设是全局变量，去 `globals` 查找（动态作用域）。
+    pub locals: HashMap<ExprId, usize>,
 }
 
 impl Interpreter {
-    /// 创建新的解释器实例，初始化全局环境
+    /// 创建一个新的解释器实例
+    ///
+    /// 初始化过程：
+    /// 1. 创建一个全新的环境作为全局环境。
+    /// 2. (可选) 在全局环境中注册原生函数 (Native Functions)。
+    /// 3. 将当前环境 (`environment`) 和全局环境 (`globals`) 都指向这个新环境。
     pub fn new() -> Self {
+        // 1. 创建根环境 (Global Scope)
+        let globals = Rc::new(RefCell::new(Environment::new()));
+
+        // TODO: 在这里注册原生函数，例如:
+        // globals.borrow_mut().define("clock".to_string(), Value::NativeFn(...));
+
         Self {
-            environment: Rc::new(RefCell::new(Environment::new())),
+            // 初始状态下，当前环境就是全局环境
+            // clone() 增加引用计数，指向的依旧是同一块内存
+            environment: globals.clone(),
+            globals,
+            locals: HashMap::new(),
         }
     }
 
-    /// 解释执行抽象语法树 (AST)
-    /// 
-    /// 如果顶层节点是 Block，则直接在当前环境中执行其中的语句
-    /// 否则对顶层表达式进行求值
-    /// 
-    /// # 参数
-    /// * `ast` - 要执行的抽象语法树
-    /// 
-    /// # 返回值
-    /// * `Ok(Value)` - 执行结果值
-    /// * `Err(RuntimeError)` - 执行过程中发生的错误
+    /// 入口函数：解释执行 AST
     pub fn interpret(&mut self, ast: AST) -> Result<Value, RuntimeError> {
-        if let Some(expr) = ast.top {
-            // 如果顶层节点是 Block（由 parse_program 生成），
-            // 需要“解包”这个 Block，直接在当前环境执行其中的语句，
-            // 而不是调用 self.evaluate(&expr) —— 后者会创建一个临时的子作用域。
-            if let Expr::Block { body } = expr {
-                let mut result = Value::Nil;
-                for stmt in body {
-                    result = self.evaluate(&stmt)?;
+        // ast.body 是 Vec<Stmt>
+        for stmt in ast.body {
+            match self.execute(&stmt) {
+                Ok(_) => {} // 语句通常返回 Unit/Nil，继续执行下一条
+                Err(e) => {
+                    // 如果到了顶层还能捕获到 Break|Continue|Return，说明 Parser/Resolver 有 Bug
+                    match e {
+                        RuntimeError::Break => {
+                            panic!("Critical Error: Parser allowed 'break' outside loop!")
+                        }
+                        RuntimeError::Continue => {
+                            panic!("Critical Error: Parser allowed 'continue' outside loop!")
+                        }
+                        RuntimeError::Return(_) => {
+                            panic!("Critical Error: Parser allowed 'return' outside function!")
+                        }
+                        _ => return Err(e),
+                    }
                 }
-                return Ok(result);
             }
-
-            let result = self.evaluate(&expr);
-        
-            match result {
-                // 如果到了顶层还能捕获到 Break| Continue，说明 Parser 有 Bug，此时应该 panic 或者报 "Internal Error"
-                Err(RuntimeError::Break) => panic!("Critical Error: Parser allowed 'break' outside loop!"),
-                Err(RuntimeError::Continue) => panic!("Critical Error: Parser allowed 'continue' outside loop!"),
-                _ => result,
-            }
-        } else {
-            Ok(Value::Nil)
-		  }
+        }
+        Ok(Value::Nil) // 返回最后的状态，或者 Nil
     }
 
-    /// 解释器的核心，递归地处理 AST 中的表达式节点进行求值，并返回结果
-    /// 
-    /// # 参数
-    /// * `expr` - 要求值的表达式
-    /// 
-    /// # 返回值
-    /// * `Ok(Value)` - 求值结果
-    /// * `Err(RuntimeError)` - 求值过程中发生的错误
+    // Statement Execution
+
+    fn execute(&mut self, stmt: &Stmt) -> Result<(), RuntimeError> {
+        match stmt {
+            Stmt::Expression { expr } => {
+                self.evaluate(expr)?;
+                Ok(())
+            }
+            Stmt::Print { expr } => {
+                let value = self.evaluate(expr)?;
+                println!("{}", value); // 副作用语句，将内容输出到 IO（控制台）
+                Ok(()) // 表示语句执行完成，没有产生供后续计算的值
+            }
+            Stmt::VarDecl { name, initializer } => {
+                let value = if let Some(expr) = initializer {
+                    self.evaluate(expr)?
+                } else {
+                    Value::Nil
+                };
+                // 声明变量总是在当前环境
+                self.environment
+                    .borrow_mut()
+                    .define(name.lexeme.clone(), value);
+                Ok(())
+            }
+            Stmt::Block { body } => {
+                self.execute_block(body, Environment::with_enclosing(self.environment.clone()))?;
+                Ok(())
+            }
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                if self.evaluate(condition)?.is_truthy() {
+                    self.execute(then_branch)?;
+                } else if let Some(else_b) = else_branch {
+                    self.execute(else_b)?;
+                }
+                Ok(())
+            }
+            Stmt::While { condition, body } => {
+                while self.evaluate(condition)?.is_truthy() {
+                    match self.execute(body) {
+                        Ok(_) => {}
+                        Err(RuntimeError::Break) => break,
+                        Err(RuntimeError::Continue) => continue,
+                        Err(e) => return Err(e),
+                    }
+                }
+                Ok(())
+            }
+            Stmt::For {
+                initializer,
+                condition,
+                increment,
+                body,
+            } => {
+                let previous_env = self.environment.clone();
+                // 创建新作用域 (init 变量)
+                self.environment = Rc::new(RefCell::new(Environment::with_enclosing(
+                    previous_env.clone(),
+                )));
+
+                if let Some(init) = initializer {
+                    self.execute(init)?; // init 是 Stmt (VarDecl 或 ExprStmt)
+                }
+
+                // 循环：使用 try-finally 模式确保环境恢复
+                let result = (|| -> Result<(), RuntimeError> {
+                    loop {
+                        // Check condition
+                        if let Some(cond) = condition {
+                            if !self.evaluate(cond)?.is_truthy() {
+                                break;
+                            }
+                        }
+
+                        // Run body
+                        match self.execute(body) {
+                            Ok(_) => {}
+                            Err(RuntimeError::Break) => break,
+                            Err(RuntimeError::Continue) => {
+                                // Note：continue 也要执行 increment
+                            }
+                            Err(e) => return Err(e),
+                        }
+
+                        // Run increment
+                        if let Some(incr) = increment {
+                            self.evaluate(incr)?;
+                        }
+                    }
+                    Ok(())
+                })();
+
+                self.environment = previous_env;
+                result
+            }
+            Stmt::Function { name, params, body } => {
+                let function = Value::Function {
+                    name: name.lexeme.clone(),
+                    // 适配 Value::Function 定义，可能需要转换，参数列表需要以 Vec<String> 存储
+                    args: params.iter().map(|t| t.lexeme.clone()).collect(),
+                    body: body.clone(), // body 是 Vec<Stmt>
+                    closure: self.environment.clone(),
+                };
+                self.environment
+                    .borrow_mut()
+                    .define(name.lexeme.clone(), function);
+                Ok(())
+            }
+            Stmt::Return { value, .. } => {
+                let return_val = if let Some(expr) = value {
+                    self.evaluate(expr)?
+                } else {
+                    Value::Nil
+                };
+                Err(RuntimeError::Return(return_val))
+            }
+            Stmt::Break => Err(RuntimeError::Break),
+            Stmt::Continue => Err(RuntimeError::Continue),
+            Stmt::Empty => Ok(()),
+        }
+    }
+
+    // Expression Evaluation
+
     fn evaluate(&mut self, expr: &Expr) -> Result<Value, RuntimeError> {
         match expr {
-            Expr::Break => Err(RuntimeError::Break),
-            Expr::Continue => Err(RuntimeError::Continue),
             Expr::Number { value } => {
                 let n = value
                     .parse::<f64>()
@@ -82,30 +229,92 @@ impl Interpreter {
             Expr::String { value } => Ok(Value::String(value.clone())),
             Expr::Boolean { value } => Ok(Value::Boolean(*value)),
             Expr::Nil => Ok(Value::Nil),
-            Expr::Grouping { expr } => self.evaluate(expr),
-            Expr::Unary { op, expr } => {
-                let right = self.evaluate(expr)?;
-                match op {
-                    Operator::Sub => match right {
-                        Value::Number(n) => Ok(Value::Number(-n)),
-                        _ => Err(RuntimeError::TypeError("Operand must be a number".into())),
-                    },
-                    Operator::Not => Ok(Value::Boolean(!right.is_truthy())),
-                    _ => Err(RuntimeError::Generic("Invalid unary operator".into())),
-                }
-            }
-            Expr::Binary { left, op, right } => {
-                if *op == Operator::LogicalAnd || *op == Operator::LogicalOr {
-                    return self.evaluate_logical(left, op, right);
-                }
 
+            Expr::List { elements } => Ok(Value::List(self.evaluate_elements(elements)?)),
+            Expr::Tuple { elements } => Ok(Value::Tuple(self.evaluate_elements(elements)?)),
+            Expr::Dict { elements } => {
+                let mut dict = HashMap::new();
+                for (k, v) in elements {
+                    let key = self.evaluate(k)?.to_string(); // Key 简化处理
+                    let val = self.evaluate(v)?;
+                    dict.insert(key, val);
+                }
+                Ok(Value::Dict(dict))
+            }
+
+            // 变量访问 (集成 Resolver)
+            Expr::Variable { id, name } => self.look_up_variable(name, id),
+
+            Expr::Assign { id, name, expr } => {
+                let value = self.evaluate(expr)?;
+
+                if let Some(&distance) = self.locals.get(id) {
+                    // 本地赋值
+                    self.environment
+                        .borrow_mut()
+                        .assign_at(distance, &name.lexeme, value.clone());
+                } else {
+                    // 全局赋值
+                    let success = self
+                        .globals
+                        .borrow_mut()
+                        .assign(&name.lexeme, value.clone());
+                    if !success {
+                        return Err(RuntimeError::UndefinedVariable(name.lexeme.clone()));
+                    }
+                }
+                Ok(value)
+            }
+
+            Expr::AssignOp { id, name, op, expr } => {
+                // 1. 获取当前值 (Read)
+                // 这里也应该走 look_up_variable，但 look_up 需要 ExprId
+                // 如果你的 AST 中 AssignOp 有 ID，就这样写：
+                let current_val = self.look_up_variable(name, id)?;
+
+                // 2. 计算 (Compute)
+                let right_val = self.evaluate(expr)?;
+                let new_val = match op {
+                    Operator::Add => self.add_values(current_val, right_val)?,
+                    // ... 复用之前的运算逻辑 ...
+                    _ => return Err(RuntimeError::Generic("Invalid assign op".into())),
+                };
+
+                // 3. 赋值回 (Write)
+                if let Some(&distance) = self.locals.get(id) {
+                    self.environment.borrow_mut().assign_at(
+                        distance,
+                        &name.lexeme,
+                        new_val.clone(),
+                    );
+                } else {
+                    self.globals
+                        .borrow_mut()
+                        .assign(&name.lexeme, new_val.clone());
+                }
+                Ok(new_val)
+            }
+
+            Expr::Logical { left, op, right } => {
+                let left_val = self.evaluate(left)?;
+                if *op == Operator::LogicalOr || *op == Operator::OrKeyword {
+                    if left_val.is_truthy() {
+                        return Ok(left_val);
+                    }
+                } else {
+                    if !left_val.is_truthy() {
+                        return Ok(left_val);
+                    }
+                }
+                self.evaluate(right)
+            }
+
+            Expr::Binary { left, op, right } => {
                 let l = self.evaluate(left)?;
                 let r = self.evaluate(right)?;
 
                 match op {
-                    Operator::Add => {
-                        self.add_values(l, r)
-                    }
+                    Operator::Add => self.add_values(l, r),
                     Operator::Sub => {
                         self.check_number_operands(l, r, |a, b| Ok(Value::Number(a - b)))
                     }
@@ -123,12 +332,12 @@ impl Interpreter {
                         if b == 0.0 {
                             Err(RuntimeError::DivisionByZero)
                         } else {
-                            Ok(Value::Number(a.rem_euclid(b) ))
+                            Ok(Value::Number(a.rem_euclid(b)))
                         }
                     }),
 
                     Operator::BitwiseAnd => self.eval_bitwise(left, right, |a, b| a & b),
-                    Operator::BitwiseOr  => self.eval_bitwise(left, right, |a, b| a | b),
+                    Operator::BitwiseOr => self.eval_bitwise(left, right, |a, b| a | b),
                     Operator::BitwiseXor => self.eval_bitwise(left, right, |a, b| a ^ b),
 
                     // 比较运算
@@ -152,362 +361,189 @@ impl Interpreter {
                     _ => Err(RuntimeError::Generic("Unknown binary operator".into())),
                 }
             }
-            Expr::Variable { name } => self
-                .environment
-                .borrow()
-                .get(name)
-                .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone())),
-            Expr::Assign { name, expr } => {
-                let value = self.evaluate(expr)?;
-                let success = self.environment.borrow_mut().assign(name, value.clone());
-                if success {
-                    Ok(value) // 赋值表达式返回赋的值 (e.g. a = b = 2)
-                } else {
-                    // 使用 assign，递归查找。
-                    let success = self.environment.borrow_mut().assign(name, value.clone());
-                    
-                    if success {
-                        Ok(value)
-                    } else {
-                        // 如果找不到变量应该提供错误信息， 而非自动创建。
-                        // 避免隐式全局变量，强制先 var 声明。
-                        Err(RuntimeError::UndefinedVariable(name.clone()))
-                    }
-                }
-            }
-            Expr::Block { body } => {
-                self.execute_block(body, Environment::with_enclosing(self.environment.clone()))
-            }
-            Expr::If {
-                condition,
-                then_branch,
-                else_branch,
+
+            Expr::Call {
+                id: _,
+                callee,
+                args,
             } => {
-                if self.evaluate(condition)?.is_truthy() {
-                    self.evaluate(then_branch)
-                } else if let Some(else_branch) = else_branch {
-                    self.evaluate(else_branch)
-                } else {
-                    Ok(Value::Nil)
-                }
-            }
-            Expr::While { condition, body } => {
-                let mut result = Value::Nil;
-        
-                while self.evaluate(condition)?.is_truthy() {
-                    match self.evaluate(body) {
-                        Ok(val) => result = val, // 更新最后一条语句的值
-                        Err(e) => match e {
-                            RuntimeError::Break => break,
-                            // Note: 借用语言机制 continue 进入下一次循环条件检查
-                            RuntimeError::Continue => continue,
-                            _ => return Err(e),
-                        }
-                    }
-                }
-                Ok(result)
-            }
-				Expr::For { initializer, condition, increment, body } => {
-                // 1. 定义的 i 应该只在循环内部有效 (防止 var i 泄露到外部)
-                let previous_env = self.environment.clone();
-                self.environment = Rc::new(RefCell::new(Environment::with_enclosing(previous_env.clone())));
+                // callee 可能是一个表达式：func()(1);
+                // 如果 callee 是一个表达式: func()，则需要先求值
+                // 检查 callee 的类型是否是 Expr::Variable，如果是 evaluate 内部会自动调用 look_up_variable
+                let func = self.evaluate(callee)?;
 
-                // 2. 初始化 (如果有)
-                if let Some(init) = initializer {
-                    self.evaluate(init)?;
-                }
-
-                let mut result = Value::Nil;
-
-                loop {
-                    // 3. 检查条件
-                    if let Some(cond) = condition {
-                        if !self.evaluate(cond)?.is_truthy() {
-                            break; // 条件为假，退出循环
-                        }
-                    } else {
-                        // 如果没有条件 (for(;;))，默认为 true 死循环
-                    }
-
-                    // 4. 执行循环体
-                    match self.evaluate(body) {
-                        Ok(val) => result = val,
-                        Err(e) => match e {
-                            RuntimeError::Break => break, // 捕获 break，退出 loop
-                            RuntimeError::Continue => {
-                                // Note：Continue 后必须执行 increment 增量操作，不能直接跳过
-                                // 这里什么都不做，让代码流继续走到下面的 increment 执行处
-                            }
-                            _ => {
-                                // 发生错误，需要恢复环境并抛出
-                                self.environment = previous_env;
-                                return Err(e);
-                            }
-                        }
-                    }
-
-                    // 5. 执行增量操作：无论是正常执行完 body 还是遇到了 continue，都要执行这一步
-                    if let Some(incr) = increment {
-                        self.evaluate(incr)?;
-                    }
-                }
-
-                // 6. 恢复环境 (销毁 loop 变量 i)
-                self.environment = previous_env;
-                Ok(result)
-            }
-            Expr::Function { name, args, body } => {
-                let function = Value::Function {
-                    name: name.clone(),
-                    args: args.clone(),
-                    body: body.clone(),
-                    // 捕获当前环境
-                    closure: self.environment.clone(),
-                };
-                // 检查函数是否已存在，避免重复定义
-                let env_borrow = self.environment.borrow();
-                if env_borrow.get(name).is_some() {
-                    drop(env_borrow); // 释放借用
-                    return Err(RuntimeError::Generic(format!("Function '{}' is already defined", name)));
-                } else {
-                    drop(env_borrow); // 释放借用
-                }
-                // 将函数定义在当前环境中
-                self.environment.borrow_mut().define(name.clone(), function);
-                Ok(Value::Nil)
-            }
-				// Note: 对应 AST 中的函数调用表达式：name(arg1, arg2, ...)
-            Expr::Call { name, args } => {
-                // 1. 获取被调用对象 
-                // 根据 AST 定义，Call 存储的是函数名字符串。
-                // 我们先将其作为变量进行求值，以获取内存中的 Value::Function 对象。
-                let callee = self.evaluate(&Expr::Variable { name: name.clone() })?;
-
-                match callee {
-                    Value::Function { 
-                        args: param_names, // 形参列表 (定义时的参数名)
-                        body,              // 函数体 (AST 节点列表)
-                        closure,           // 闭包 (定义时的环境快照)
-                        ..                 // 忽略 name 字段
+                match func {
+                    Value::Function {
+                        args: param_names,
+                        body,
+                        closure,
+                        ..
                     } => {
-                        // 2. Arity Check
                         if args.len() != param_names.len() {
-                            return Err(RuntimeError::Generic(format!(
-                                "Expected {} arguments but got {}.",
-                                param_names.len(),
-                                args.len()
-                            )));
+                            return Err(RuntimeError::Generic("Arity mismatch".into()));
                         }
 
-                        // 3. 获取参数值
-                        // 注意：参数必须在 *当前环境* (调用者的环境) 下求值
-                        let mut arg_values = Vec::new();
+                        // 准备环境 (参数求值 + 绑定)
+                        let mut arg_vals = Vec::new();
                         for arg in args {
-                            arg_values.push(self.evaluate(arg)?);
+                            arg_vals.push(self.evaluate(arg)?);
                         }
 
-                        // 4. 创建函数作用域
-                        // 关键点：新环境的父环境必须是 **closure** (定义时的环境)，
-                        //         而不是 self.environment (调用时的环境)。
-                        //         只有这样才能实现词法作用域 (Lexical Scoping)。
+                        // 闭包环境
                         let func_env = Rc::new(RefCell::new(Environment::with_enclosing(closure)));
-
-                        // 5. 绑定参数 
                         for (i, param_name) in param_names.iter().enumerate() {
-                            // 将计算好的实参值，绑定到新环境中的形参名上
-                            func_env.borrow_mut().define(param_name.clone(), arg_values[i].clone());
+                            func_env
+                                .borrow_mut()
+                                .define(param_name.clone(), arg_vals[i].clone());
                         }
 
-                        // 6. 执行函数体：保存当前解释器的环境，以便函数执行完后恢复
-                        let previous_env = self.environment.clone();
-                        // 切换解释器环境指向新的函数环境
-                        self.environment = func_env;
+                        // 执行 (委托给 helper)
+                        let result = self.execute_block(&body, (*func_env).clone().into_inner());
 
-                        // 执行函数体内的所有语句：execute_block_internal 负责遍历语句并执行，但不负责环境切换(我们已经切换了)
-                        let result = self.execute_block_internal(&body);
-
-                        // 7. 恢复环境：无论函数执行成功还是报错，都需要恢复环境，否则后续代码会在错误的上下文中运行
-                        self.environment = previous_env;
-
-                        // 8. 处理返回值 
                         match result {
-                            // 情况 A: 函数自然执行结束（隐式返回最后一条语句的值）
-                            Ok(val) => Ok(val), 
-
-                            Err(e) => match e {
-                                // 情况 B: 捕获到了显式的 return 语句，将特殊的 Return 错误"降级"为正常的返回值
-                                RuntimeError::Return(return_value) => Ok(return_value),
-        
-                                // 情况 C: 真正的运行时错误，继续向上抛出
-                                _ => Err(e),
-                            },
+                            Ok(_) => Ok(Value::Nil),
+                            Err(RuntimeError::Return(v)) => Ok(v), // 把错误变回值
+                            Err(e) => Err(e),                      // 其他错误继续抛出
                         }
                     }
-                    // Todo: 支持 Native Function (如 print, clock)，在这里添加分支
-                    // Value::NativeFunction { ... } => { ... }
-                    _ => Err(RuntimeError::TypeError(format!("Can only call functions, got {}", callee))),
+                    _ => Err(RuntimeError::TypeError("Can only call functions".into())),
                 }
-				}
-            Expr::List { elements } => {
-                Ok(Value::List(self.evaluate_elements(elements)?))
             }
-            Expr::Tuple { elements } => {
-                Ok(Value::Tuple(self.evaluate_elements(elements)?))
-            }
-            Expr::Dict { elements } => {
-                let mut dict = HashMap::new();
-                for (k_expr, v_expr) in elements {
-                    let key_val = self.evaluate(k_expr)?;
 
-                    // Todo: 简化处理：将 Key 转为 String，允许特定类型作为 Key。
-                    let key_str = key_val.to_string();
+            Expr::Grouping { expr } => self.evaluate(expr),
+            Expr::Unary { op, expr } => {
+                // 1. 先递归求右侧表达式的值
+                let right = self.evaluate(expr)?;
 
-                    let val = self.evaluate(v_expr)?;
+                match op {
+                    Operator::Not => Ok(Value::Boolean(!right.is_truthy())),
 
-                    dict.insert(key_str, val);
+                    Operator::Sub => match right {
+                        Value::Number(n) => Ok(Value::Number(-n)),
+                        _ => Err(RuntimeError::TypeError("Operand must be a number.".into())),
+                    },
+
+                    // 逻辑：f64 -> i64 -> 按位取反 -> f64
+                    Operator::BitwiseNot => match right {
+                        Value::Number(n) => {
+                            let int_val = n as i64;
+                            Ok(Value::Number((!int_val) as f64))
+                        }
+                        _ => Err(RuntimeError::TypeError("Operand must be a number.".into())),
+                    },
+
+                    _ => Err(RuntimeError::Generic(format!(
+                        "Invalid unary operator: {:?}",
+                        op
+                    ))),
                 }
-                Ok(Value::Dict(dict))
             }
-            Expr::Identifier { name } => self
-                .environment
-                .borrow()
-                .get(name)
-                .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone())),
-            Expr::AssignOp { op, name, expr } => {
-                // 1. 获取当前值
-                let current_val = self
-                    .environment
-                    .borrow()
-                    .get(name)
-                    .ok_or_else(|| RuntimeError::UndefinedVariable(name.clone()))?;
-
-                // 2. 计算右侧表达式
-                let right_val = self.evaluate(expr)?;
-
-                // 3. 根据 op 进行运算
-                let new_val = match op {
-                    Operator::Add => self.add_values(current_val, right_val)?,
-                    Operator::Sub => {
-                        self.check_number_operands(current_val, right_val, |a, b| {
-                            Ok(Value::Number(a - b))
-                        })?
-                    }
-                    Operator::Mul => {
-                        self.check_number_operands(current_val, right_val, |a, b| {
-                            Ok(Value::Number(a * b))
-                        })?
-                    }
-                    Operator::Div => {
-                        self.check_number_operands(current_val, right_val, |a, b| {
-                            if b == 0.0 {
-                                Err(RuntimeError::DivisionByZero)
-                            } else {
-                                Ok(Value::Number(a / b))
-                            }
-                        })?
-                    }
-                    _ => return Err(RuntimeError::Generic("Invalid assignment operator".into())),
-                };
-
-                // 4. 写回环境
-                self.environment.borrow_mut().assign(name, new_val.clone());
-                Ok(new_val)
-            }
-            Expr::Return { value, .. } => {
-                let return_val = if let Some(expr) = value {
-                   self.evaluate(expr)? // 如果返回的是有效值，evaluate 会递归处理
-                } else {
-                   Value::Nil // 允许返回空
-                };
-        
-		          // 否则抛出特殊错误
-                Err(RuntimeError::Return(return_val))
-            }
-            Expr::VarDecl { name, initializer } => {
-                let value = self.evaluate(initializer)?;
-                // Shadowing (变量遮蔽) 在当前的作用域环境下插入，不改变父环境
-                self.environment.borrow_mut().define(name.clone(), value);
-                Ok(Value::Nil)
-            },
-				Expr::Print{expr} => self.execute_print(expr),
-		  }
+        }
     }
-	
-    /// 执行代码块中的语句，创建新环境并处理作用域
-    /// 
+
+    // Helper methods
+    // Resolver 接口
+    pub fn resolve(&mut self, expr_id: ExprId, depth: usize) {
+        self.locals.insert(expr_id, depth);
+    }
+
+    ///  Core: 变量查找 (Variable Resolution)
+    ///
+    /// 连接 **Interpreter (运行时)** 和 **Resolver (静态分析)**。
+    /// 该方法决定了变量是应该作为 **本地变量** (通过词法作用域链查找) 还是 **全局变量** (动态查找)。
+    ///
+    /// # 逻辑流程
+    /// 1. **查表 (`locals`)**：使用 AST 节点的唯一 ID (`expr_id`) 在 `locals` 侧表中查找。
+    ///    - 如果存在记录，说明 **Resolver** 在编译期已将其解析为本地变量，并计算出了它距离当前环境的深度 (`distance`)。
+    ///    - 此时调用 `environment.get_at` 进行精确查找（跳过中间的父环境，直接去第 N 层取值）。
+    /// 2. **查全局 (`globals`)**：如果侧表中没有记录，说明 Resolver 认为这是一个全局变量。
+    ///    - 此时直接在 `globals` 环境中查找。
+    ///
     /// # 参数
-    /// * `statements` - 代码块中的语句列表
-    /// * `new_env` - 新的环境，作为当前环境的子环境
-    /// 
-    /// # 返回值
-    /// * `Ok(Value)` - 代码块中最后一条语句的执行结果
+    /// * `name` - 变量名的 Token (用于报错时获取 lexeme 和行号)
+    /// * `expr_id` - AST 节点的唯一 ID
+    fn look_up_variable(&self, name: &Token, expr_id: &ExprId) -> Result<Value, RuntimeError> {
+        if let Some(&distance) = self.locals.get(expr_id) {
+            // 情况 A: 本地变量 (Lexical Scoping)
+            self.environment
+                .borrow()
+                .get_at(distance, &name.lexeme)
+                .ok_or_else(|| RuntimeError::UndefinedVariable(name.lexeme.clone()))
+        } else {
+            // 情况 B: 全局变量 (Dynamic Lookup)
+            self.globals
+                .borrow()
+                .get(&name.lexeme)
+                .ok_or_else(|| RuntimeError::UndefinedVariable(name.lexeme.clone()))
+        }
+    }
+
+    /// 执行代码块并在指定环境中运行 (Block Execution)
+    ///
+    /// 负责管理作用域的 **进入** 和 **退出**。
+    ///
+    /// # 核心机制：Try-Finally 模拟
+    /// 在解释器中，环境切换必须保证 **对称性**：进去了一个新环境，出来时必须恢复旧环境。
+    /// 即使代码块内部发生了错误 (`Err`) 或控制流跳转 (`Return`/`Break`)，
+    /// 环境恢复逻辑 `self.environment = previous` 也**必须**执行。
+    ///
+    /// 代码中使用立即执行闭包 `(|| { ... })()` 来模拟 `try-finally` 块，
+    /// 确保环境恢复代码永远会被执行。
+    ///
+    /// # 参数
+    /// * `statements` - 代码块内的语句列表
+    /// * `new_env` - 要切换到的新环境 (通常父级指向当前的 `self.environment`)
     fn execute_block(
         &mut self,
-        statements: &[Expr],
+        statements: &[Stmt],
         new_env: Environment,
-    ) -> Result<Value, RuntimeError> {
+    ) -> Result<(), RuntimeError> {
         let previous = self.environment.clone();
-        // 切换环境
+
         self.environment = Rc::new(RefCell::new(new_env));
 
-        let result = self.execute_block_internal(statements);
+        // Execute
+        // 使用闭包捕获执行结果，但不立即返回，以便恢复环境
+        let result = (|| {
+            for stmt in statements {
+                self.execute(stmt)?;
+            }
+            Ok(())
+        })();
 
-        // 恢复环境 (很重要，否则作用域就乱了)
+        // 无论 result 是 Ok 还是 Err，这一步都会执行
         self.environment = previous;
+
         result
     }
 
-    /// 内部执行 Block 逻辑（不负责环境切换）
-    /// 
+    /// 批量求值表达式列表 (Batch Evaluation)
+    ///
+    /// 通用辅助函数，用于将 `Vec<Expr>` 转换为 `Vec<Value>`。
+    /// 保证了表达式是从左到右依次求值的。
+    ///
+    /// # 适用场景
+    /// * 列表/数组字面量: `[1, 2, a]`
+    /// * 元组字面量: `(1, 2)`
+    /// * 函数调用参数: `func(a, b, c)`
+    ///
     /// # 参数
-    /// * `statements` - 代码块中的语句列表
-    /// 
-    /// # 返回值
-    /// * `Ok(Value)` - 代码块中最后一条语句的执行结果
-    fn execute_block_internal(&mut self, statements: &[Expr]) -> Result<Value, RuntimeError> {
-        let mut result = Value::Nil;
-        for stmt in statements {
-            result = self.evaluate(stmt)?;
+    /// * `elements` - 表达式切片
+    fn evaluate_elements(&mut self, elements: &[Expr]) -> Result<Vec<Value>, RuntimeError> {
+        let mut res = Vec::new();
+        for e in elements {
+            res.push(self.evaluate(e)?);
         }
-        // 返回最后一条语句的值 (Implicit return)
-        Ok(result)
-    }
-
-    /// 处理逻辑运算符短路求值
-    /// 
-    /// # 参数
-    /// * `left` - 左侧表达式
-    /// * `op` - 逻辑运算符 (AND 或 OR)
-    /// * `right` - 右侧表达式
-    fn evaluate_logical(
-        &mut self,
-        left: &Expr,
-        op: &Operator,
-        right: &Expr,
-    ) -> Result<Value, RuntimeError> {
-        let left_val = self.evaluate(left)?;
-
-        if *op == Operator::LogicalOr {
-            if left_val.is_truthy() {
-                return Ok(left_val);
-            }
-        } else {
-            // AND
-            if !left_val.is_truthy() {
-                return Ok(left_val);
-            }
-        } 
-
-        self.evaluate(right)
+        Ok(res)
     }
 
     /// 检查操作数是否为数字类型，并对其执行指定的操作
-    /// 
+    ///
     /// # 参数
     /// * `left` - 左操作数
     /// * `right` - 右操作数
     /// * `f` - 对两个数字执行的操作函数
-    /// 
+    ///
     /// # 返回值
     /// * `Ok(Value)` - 操作结果
     /// * `Err(RuntimeError)` - 类型错误
@@ -527,73 +563,64 @@ impl Interpreter {
     }
 
     /// 处理两个值的加法运算，支持数字、字符串、列表、元组和字典的连接
-    /// 
+    ///
     /// # 参数
     /// * `left` - 左操作数
     /// * `right` - 右操作数
-    /// 
+    ///
     /// # 返回值
     /// * `Ok(Value)` - 连接或相加的结果
     fn add_values(&self, left: Value, right: Value) -> Result<Value, RuntimeError> {
-            match (left, right) {
-                (Value::Number(n1), Value::Number(n2)) => Ok(Value::Number(n1 + n2)),
+        match (left, right) {
+            (Value::Number(n1), Value::Number(n2)) => Ok(Value::Number(n1 + n2)),
 
-                (Value::String(mut s1), Value::String(s2)) => {
-                    // 左右值获取了所有权 复用内存
-                    s1.push_str(&s2);
-                    Ok(Value::String(s1))
-                }
-
-                //  列表、元组、字典
-                (Value::List(mut list1), Value::List(list2)) => {
-                    list1.extend(list2);
-                    Ok(Value::List(list1))
-                }
-                (Value::Tuple(mut tuple1), Value::Tuple(tuple2)) => {
-                    tuple1.extend(tuple2);
-                    Ok(Value::Tuple(tuple1))
-                }
-				    (Value::Dict(mut dict1), Value::Dict(dict2)) => {
-                    dict1.extend(dict2);
-                    Ok(Value::Dict(dict1))
-                }
-
-                // edge case
-                (l, r) => Err(RuntimeError::TypeError(format!(
-                    "Binary operator '+' requires two numbers or two strings. Got {} and {}.",
-                    l.type_name(),
-                    r.type_name()
-                ))),
+            (Value::String(mut s1), Value::String(s2)) => {
+                // 左右值获取了所有权 复用内存
+                s1.push_str(&s2);
+                Ok(Value::String(s1))
             }
-        }
 
-    /// 对列表或元组中的表达式元素进行求值
-    /// 
-    /// 用于将表达式元素列表转换为值列表，支持列表和元组的元素初始化。
-    /// 
-    /// # 参数
-    /// * `elements` - 表达式元素切片
-    fn evaluate_elements(&mut self, elements: &[Expr]) -> Result<Vec<Value>, RuntimeError> {
-        let mut values = Vec::new();
-        for element in elements {
-            values.push(self.evaluate(element)?);
+            //  列表、元组、字典
+            (Value::List(mut list1), Value::List(list2)) => {
+                list1.extend(list2);
+                Ok(Value::List(list1))
+            }
+            (Value::Tuple(mut tuple1), Value::Tuple(tuple2)) => {
+                tuple1.extend(tuple2);
+                Ok(Value::Tuple(tuple1))
+            }
+            (Value::Dict(mut dict1), Value::Dict(dict2)) => {
+                dict1.extend(dict2);
+                Ok(Value::Dict(dict1))
+            }
+
+            // edge case
+            (l, r) => Err(RuntimeError::TypeError(format!(
+                "Binary operator '+' requires two numbers or two strings. Got {} and {}.",
+                l.type_name(),
+                r.type_name()
+            ))),
         }
-        Ok(values)
     }
 
-	 /// 位运算辅助函数
-    /// 
+    /// 位运算辅助函数
+    ///
     /// 对两个表达式进行位运算操作，支持按位与、按位或操作
-    /// 
+    ///
     /// # 参数
     /// * `left_expr` - 左侧表达式
     /// * `right_expr` - 右侧表达式
     /// * `op` - 位运算操作函数
-    /// 
+    ///
     /// # 返回值
     /// * `Ok(Value)` - 位运算结果
     /// * `Err(RuntimeError)` - 类型错误（当操作数不是数字时）
-    fn eval_bitwise<F>(&mut self, left_expr: &Expr, right_expr: &Expr, op: F) -> Result<Value, RuntimeError>
+    fn eval_bitwise<F>(
+        &mut self,
+        left_expr: &Expr,
+        right_expr: &Expr,
+        op: F,
+    ) -> Result<Value, RuntimeError>
     where
         F: Fn(i64, i64) -> i64,
     {
@@ -607,9 +634,9 @@ impl Interpreter {
                 // 这里会发生截断，例如 3.5 & 1 会变成 3 & 1。
                 let i1 = n1 as i64;
                 let i2 = n2 as i64;
-                
+
                 let result = op(i1, i2);
-                
+
                 // 转回 f64
                 Ok(Value::Number(result as f64))
             }
@@ -621,17 +648,12 @@ impl Interpreter {
             ))),
         }
     }
-	 
-	 fn execute_print(&mut self, expr: &Expr) -> Result<Value, RuntimeError> {
-		let value = self.evaluate(expr)?;
-		println!("{}", value);
-		// print 语句是一个副作用语句。职责是立刻将内容输出到 IO（控制台），
-		// 并通常返回 Nil（表示语句执行完成，没有产生供后续计算的值）。
-		Ok(Value::Nil) 
-	 }
+
+    #[cfg(test)]
+    pub fn get_global_value(&self, name: &str) -> Option<Value> {
+        self.globals.borrow().get(name)
+    }
 }
-
-
 
 #[cfg(test)]
 #[path = "tests/mod.rs"]

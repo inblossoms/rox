@@ -1,9 +1,7 @@
-mod assignments;
-mod basic_types;
-mod control_flow;
-mod data_structures;
-mod functions;
-mod operations;
-mod variables_scoping;
+pub mod base_operation;
+pub mod control_flow;
+pub mod error_handling;
+pub mod function_and_scope;
+pub mod helper;
 
-pub use basic_types::create_test_interpreter;
+pub use helper::*;
