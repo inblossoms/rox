@@ -1,8 +1,8 @@
-mod basic_tests;
-mod call_tests;
-mod control_flow_tests;
-mod error_tests;
-mod function_tests;
-mod precedence_tests;
+pub mod error_handling;
+pub mod func_call_and_definition;
+pub mod helper;
+pub mod priority_and_associativity;
+pub mod range_boundary;
+pub mod statement_and_control;
 
-pub use basic_tests::*;
+pub use helper::*;
