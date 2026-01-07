@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::Literal;
 use super::TokenType;
 
@@ -7,6 +9,12 @@ pub struct Token {
     pub lexeme: String,
     pub line: usize,
     pub literal: Literal,
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.lexeme)
+    }
 }
 
 impl Token {
@@ -23,4 +31,9 @@ impl Token {
             literal,
         }
     }
+}
+
+#[derive(Debug)]
+pub struct Tokens {
+    pub tokens: Vec<Token>,
 }
