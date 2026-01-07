@@ -1,5 +1,5 @@
 use crate::{
-    ast::Expr,
+    ast::Stmt,
     parser::{error::Error, parse::ParseHelper},
     tokenizer::TokenType,
 };
@@ -7,7 +7,7 @@ use crate::{
 // 处理控制语句行为
 impl ParseHelper {
     /// 解析 if 语句
-    pub fn parse_if_statement(&mut self) -> Result<Expr, Error> {
+    pub fn parse_if_statement(&mut self) -> Result<Stmt, Error> {
         self.consume(TokenType::LeftParen, "Expect '(' after 'if'.")?;
         let condition = self.parse_expression()?;
         self.consume(TokenType::RightParen, "Expect ')' after if condition.")?;
@@ -22,15 +22,15 @@ impl ParseHelper {
             None
         };
 
-        Ok(Expr::If {
-            condition: Box::new(condition),
+        Ok(Stmt::If {
+            condition,
             then_branch: Box::new(then_branch),
             else_branch,
         })
     }
 
     /// 解析 while 语句
-    pub fn parse_while_statement(&mut self) -> Result<Expr, Error> {
+    pub fn parse_while_statement(&mut self) -> Result<Stmt, Error> {
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
         let condition = self.parse_expression()?;
         self.consume(TokenType::RightParen, "Expect ')' after condition.")?;
@@ -46,17 +46,16 @@ impl ParseHelper {
 
         let body = body_result?; // 在这里处理错误
 
-        Ok(Expr::While {
-            condition: Box::new(condition),
+        Ok(Stmt::While {
+            condition,
             body: Box::new(body),
         })
     }
 
     /// 解析 for 循环语句
-    pub fn parse_for_statement(&mut self) -> Result<Expr, Error> {
+    pub fn parse_for_statement(&mut self) -> Result<Stmt, Error> {
         self.consume(TokenType::LeftParen, "Expect '(' after 'for'.")?;
 
-        // 1. 初始化
         let initializer = if self.match_token(&[TokenType::Semicolon]) {
             None // for (;...)
         } else if self.match_token(&[TokenType::Var]) {
@@ -67,29 +66,27 @@ impl ParseHelper {
         // Note：parse_var_declaration 和 parse_expression_statement 内部通常已经消耗了分号
         //       对于是 None 的情况，match_token 已经消耗分号，所以这里不需要再处理分号
 
-        // 2. 条件
         let condition = if self.check(TokenType::Semicolon) {
             None // 空条件默认为 true，for (...; ;...)
         } else {
-            Some(Box::new(self.parse_expression()?))
+            Some(self.parse_expression()?)
         };
         self.consume(TokenType::Semicolon, "Expect ';' after for condition.")?;
 
-        // 3. 增量
         let increment = if self.check(TokenType::RightParen) {
             None // 没有增量，for (...;...; )
         } else {
-            Some(Box::new(self.parse_expression()?))
+            Some(self.parse_expression()?)
         };
         self.consume(TokenType::RightParen, "Expect ')' after for clauses.")?;
 
-        // 4. 循环体
+        // 循环体
         self.loop_depth += 1;
         let body_result = self.parse_statement();
         self.loop_depth -= 1;
 
         let body = body_result?;
-        Ok(Expr::For {
+        Ok(Stmt::For {
             initializer,
             condition,
             increment,
@@ -98,21 +95,21 @@ impl ParseHelper {
     }
 
     /// 解析 break 语句
-    pub fn parse_break_statement(&mut self) -> Result<Expr, Error> {
+    pub fn parse_break_statement(&mut self) -> Result<Stmt, Error> {
         if self.loop_depth == 0 {
             return Err(self.error(self.previous(), "Cannot use 'break' outside of a loop."));
         }
 
         self.consume(TokenType::Semicolon, "Expect ';' after 'break'.")?;
-        Ok(Expr::Break)
+        Ok(Stmt::Break)
     }
 
     /// 解析 continue 语句
-    pub fn parse_continue_statement(&mut self) -> Result<Expr, Error> {
+    pub fn parse_continue_statement(&mut self) -> Result<Stmt, Error> {
         if self.loop_depth == 0 {
             return Err(self.error(self.previous(), "Cannot use 'continue' outside of a loop."));
         }
         self.consume(TokenType::Semicolon, "Expect ';' after 'break'.")?;
-        Ok(Expr::Continue)
+        Ok(Stmt::Continue)
     }
 }

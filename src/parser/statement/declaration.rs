@@ -1,5 +1,5 @@
 use crate::{
-    ast::Expr,
+    ast::Stmt,
     parser::{error::Error, parse::ParseHelper},
     tokenizer::TokenType,
 };
@@ -7,14 +7,14 @@ use crate::{
 // 声明语句（变量声明、函数声明）
 impl ParseHelper {
     /// 解析变量声明语句
-    pub fn parse_var_declaration(&mut self) -> Result<Expr, Error> {
+    pub fn parse_var_declaration(&mut self) -> Result<Stmt, Error> {
         let name_token = self.consume(TokenType::Identifier, "Expect variable name.")?;
-        let name = name_token.lexeme.clone();
+        let name = name_token.clone();
 
         let initializer = if self.match_token(&[TokenType::Equal]) {
-            self.parse_expression()?
+            Some(self.parse_expression()?)
         } else {
-            Expr::Nil
+            None
         };
 
         self.consume(
@@ -22,23 +22,20 @@ impl ParseHelper {
             "Expect ';' after variable declaration.",
         )?;
 
-        Ok(Expr::VarDecl {
-            name,
-            initializer: Box::new(initializer),
-        })
+        Ok(Stmt::VarDecl { name, initializer })
     }
 
     /// 解析函数声明语句
-    pub fn parse_function_declaration(&mut self) -> Result<Expr, Error> {
+    pub fn parse_function_declaration(&mut self) -> Result<Stmt, Error> {
         let name_token = self.consume(TokenType::Identifier, "Expect function name.")?;
-        let name = name_token.lexeme.clone();
+        let name = name_token.clone();
 
         self.consume(TokenType::LeftParen, "Expect '(' after function name.")?;
-        let mut args = Vec::new();
+        let mut params = Vec::new();
         if !self.check(TokenType::RightParen) {
             loop {
                 let arg_token = self.consume(TokenType::Identifier, "Expect parameter name.")?;
-                args.push(arg_token.lexeme.clone());
+                params.push(arg_token.clone());
                 if !self.match_token(&[TokenType::Comma]) {
                     break;
                 }
@@ -53,7 +50,7 @@ impl ParseHelper {
         // 进入函数体重置循环深度 因为函数体局部作用域隔离了外部循环
         // while (true) {
         //     fun test() {
-        //         break; // 语法错误！虽然行为上被包含在 while 的花括号里，但逻辑上在函数里
+        //         break; // break 不应出现在函数体中
         //     }
         // }
         self.loop_depth = 0;
@@ -63,9 +60,9 @@ impl ParseHelper {
 
         let body_stmts = body_stmts_result?;
 
-        Ok(Expr::Function {
+        Ok(Stmt::Function {
             name,
-            args,
+            params,
             body: body_stmts,
         })
     }
