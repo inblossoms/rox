@@ -11,6 +11,7 @@ use crate::{
 /// 以便在解析阶段直接进行部分语法错误检查（Fail Fast）。
 #[derive(Debug)]
 pub struct ParseHelper {
+    // tokens & index 解析器输入流读取机制。
     /// Token 流
     ///
     /// 词法分析器 (Tokenizer) 生成的扁平化 Token 列表。
@@ -24,6 +25,7 @@ pub struct ParseHelper {
     /// - `advance()` 会导致 `index += 1`
     pub index: usize,
 
+    // loop_depth & func_depth 上下文感知 (Context Awareness) 机制，允许解析器在生成 AST 之前就拦截结构性错误（如在循环外 break）。
     /// Loop Depth
     ///
     /// 记录当前代码处于多少层循环 (`for`, `while`) 内部。
@@ -40,6 +42,7 @@ pub struct ParseHelper {
     ///   如果 `func_depth == 0` (顶层代码)，使用 `return` 应报错。
     pub func_depth: usize,
 
+    // next_id: 静态分析，为 Resolver 和 Interpreter 提供正确处理闭包和变量遮蔽的条件。
     /// Unique ID Generator 计数器
     ///
     /// 用于生成全局唯一的 `ExprId`。
