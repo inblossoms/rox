@@ -21,11 +21,11 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    // --- 入口方法 ---
+    // 入口
 
-    /// 解析一组语句 (Statement List Resolution)
+    /// 解析一组语句
     ///
-    /// 这是 Resolver 的主入口，通常用于解析整个程序或代码块的 body。
+    /// Resolver 的主入口，用于解析整个程序或代码块的 body。
     pub fn resolve_stmts(&mut self, statements: &Vec<Stmt>) -> Result<(), String> {
         for stmt in statements {
             self.resolve_stmt(stmt)?;
@@ -33,24 +33,24 @@ impl<'a> Resolver<'a> {
         Ok(())
     }
 
-    // --- 语句解析 (Statement Resolution) ---
+    // 语句解析
 
     /// 解析单个语句
     ///
-    /// 负责处理作用域的创建/销毁、变量声明以及控制流的递归解析。
+    /// 处理作用域的创建/销毁、变量声明以及控制流的递归解析。
     fn resolve_stmt(&mut self, stmt: &Stmt) -> Result<(), String> {
         match stmt {
-            // 1. 代码块 (Block)
-            // 进入块时创建新作用域，退出时销毁，这是词法作用域的基础。
+            // Block
+            // 进入块时创建新作用域，退出时销毁（词法作用域的基础）
             Stmt::Block { body } => {
                 self.begin_scope();
                 self.resolve_stmts(body)?;
                 self.end_scope();
             }
 
-            // 2. 变量声明 (Var Declaration)
-            // 分两步处理：声明 (Declare) -> 解析初始化表达式 -> 定义 (Define)。
-            // 这种分步是为了处理 `var a = a;` 这种自引用的错误情况。
+            // 变量声明
+            // 处理步骤：声明 (Declare) -> 解析初始化表达式 -> 定义 (Define)。
+            // 分步是为了处理 `var a = a;` 自引用错误情况。
             Stmt::VarDecl { name, initializer } => {
                 self.declare(name)?;
                 if let Some(init) = initializer {
@@ -59,7 +59,7 @@ impl<'a> Resolver<'a> {
                 self.define(name);
             }
 
-            // 3. 函数声明 (Function Declaration)
+            // 函数声明
             // 函数名在当前作用域立即可见（支持递归），然后创建新作用域解析函数体。
             Stmt::Function { name, params, body } => {
                 self.declare(name)?;
@@ -68,13 +68,11 @@ impl<'a> Resolver<'a> {
                 self.resolve_function(params, body, FunctionType::Function)?;
             }
 
-            // 4. 表达式语句 (Expression Statement)
-            // 仅仅是递归解析内部的表达式。
+            // 表达式语句 递归解析内部表达式。
             Stmt::Expression { expr } => {
                 self.resolve_expr(expr)?;
             }
 
-            // 5. 条件语句 (If)
             Stmt::If {
                 condition,
                 then_branch,
@@ -87,7 +85,6 @@ impl<'a> Resolver<'a> {
                 }
             }
 
-            // 6. While 循环
             // 解析循环体时需要更新 `current_loop` 状态，以便检查 break/continue。
             Stmt::While { condition, body } => {
                 self.resolve_expr(condition)?;
@@ -98,8 +95,7 @@ impl<'a> Resolver<'a> {
                 self.current_loop = enclosing_loop;
             }
 
-            // 7. For 循环
-            // For 循环自带一个隐式作用域（用于初始化变量），因此显式调用 begin_scope。
+            // For 循环自带隐式作用域（用于初始化变量），因此显式调用 begin_scope。
             Stmt::For {
                 initializer,
                 condition,
@@ -126,13 +122,11 @@ impl<'a> Resolver<'a> {
                 self.end_scope();
             }
 
-            // 8. 打印语句 (Print)
             Stmt::Print { expr } => {
                 self.resolve_expr(expr)?;
             }
 
-            // 9. 返回语句 (Return)
-            // 检查 `return` 是否出现在顶层代码中（非法）。
+            // Return 检查 `return` 是否非法出现在顶层代码中。
             Stmt::Return { keyword, value } => {
                 if self.current_function == FunctionType::None {
                     return Err(format!(
@@ -145,8 +139,7 @@ impl<'a> Resolver<'a> {
                 }
             }
 
-            // 10. 控制流跳转 (Break/Continue)
-            // 检查是否出现在循环外部（非法）。
+            // Break/Continue 检查是否非法出现在循环外部
             Stmt::Break => {
                 if self.current_loop == LoopType::None {
                     return Err("Can't use 'break' outside of a loop.".to_string());
@@ -158,13 +151,13 @@ impl<'a> Resolver<'a> {
                 }
             }
 
-            // 空语句：无需操作
+            // 空语句 无需操作
             Stmt::Empty => (),
         }
         Ok(())
     }
 
-    // --- 表达式解析 (Expression Resolution) ---
+    // 表达式解析
 
     /// 解析单个表达式
     ///
