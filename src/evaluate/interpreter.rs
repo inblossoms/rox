@@ -3,6 +3,19 @@ use crate::evaluate::{environment::Environment, error::RuntimeError, value::Valu
 use crate::tokenizer::Token;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+/**
+ * Thinking
+ *
+ * 双环境指针 (environment vs globals):
+ *   解释器就像一个游标，environment 是游标当前的位置。
+ *   globals 是游标的起点（根）。
+ *   这解决了“如何在深层递归中快速访问全局变量”的问题，也确保了即使当前环境变了，全局状态依然存在且唯一。
+ * Side Table 分离 (locals):
+ *   我们没有把解析结果（距离）直接写在 AST 节点里（那样需要修改 AST 结构，且 AST 通常是不可变的）。
+ *   我们也没有写在 Environment 里（Environment 是运行时数据）。
+ *   我们将静态分析的结果存在 Interpreter 的这张 HashMap 中。这是一种经典的编译器设计模式，称为 Side Table。
+ */
+
 /// 解释器 (Interpreter)
 ///
 /// 负责遍历 AST (抽象语法树)，执行语句 (Stmt) 并计算表达式 (Expr) 的值。
