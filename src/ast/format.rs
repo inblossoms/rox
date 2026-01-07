@@ -99,6 +99,17 @@ pub fn format_stmt(stmt: &Stmt) -> String {
                 body_str
             )
         }
+        Stmt::Class { name, methods } => {
+            format!(
+                "class {} {{ {} }}",
+                name.lexeme,
+                methods
+                    .iter()
+                    .map(|m| format_stmt(m))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        }
         Stmt::Block { body } => {
             let parts: Vec<String> = body.iter().map(format_stmt).collect();
 

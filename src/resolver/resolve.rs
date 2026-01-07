@@ -68,6 +68,25 @@ impl<'a> Resolver<'a> {
                 self.resolve_function(params, body, FunctionType::Function)?;
             }
 
+            Stmt::Class { name, methods } => {
+                self.declare(name)?;
+                self.define(name);
+
+                // 当前实现阶段并不运行方法，但也要解析方法体内的变量
+                // 可以防止 "return" 出现在方法外等错误
+                // TODO: 这里将来要设置 current_function = Method
+                for method in methods {
+                    if let Stmt::Function {
+                        name: _,
+                        params,
+                        body,
+                    } = method
+                    {
+                        self.resolve_function(params, body, FunctionType::Function)?;
+                    }
+                }
+            }
+
             // 表达式语句 递归解析内部表达式。
             Stmt::Expression { expr } => {
                 self.resolve_expr(expr)?;

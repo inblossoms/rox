@@ -27,13 +27,20 @@ impl ParseHelper {
 
     /// 解析函数声明语句
     pub fn parse_function_declaration(&mut self) -> Result<Stmt, Error> {
-        let name_token = self.consume(TokenType::Identifier, "Expect function name.")?;
+        self.parse_function("function")
+    }
+
+    fn parse_function(&mut self, kind: &str) -> Result<Stmt, Error> {
+        let name_token = self.consume(TokenType::Identifier, &format!("Expect {} name.", kind))?;
         let name = name_token.clone();
 
         self.consume(TokenType::LeftParen, "Expect '(' after function name.")?;
         let mut params = Vec::new();
         if !self.check(TokenType::RightParen) {
             loop {
+                if params.len() >= 255 {
+                    let _ = self.error(self.peek(), "Can't have more than 255 parameters.");
+                }
                 let arg_token = self.consume(TokenType::Identifier, "Expect parameter name.")?;
                 params.push(arg_token.clone());
                 if !self.match_token(&[TokenType::Comma]) {
@@ -43,7 +50,10 @@ impl ParseHelper {
         }
         self.consume(TokenType::RightParen, "Expect ')' after parameters.")?;
 
-        self.consume(TokenType::LeftBrace, "Expect '{' before function body.")?;
+        self.consume(
+            TokenType::LeftBrace,
+            &format!("Expect {{ before {} body.", kind),
+        )?;
         let previous_func_depth = self.func_depth;
         let previous_loop_depth = self.loop_depth;
         self.func_depth += 1;
@@ -65,5 +75,21 @@ impl ParseHelper {
             params,
             body: body_stmts,
         })
+    }
+
+    pub fn parse_class_declaration(&mut self) -> Result<Stmt, Error> {
+        let name = self
+            .consume(TokenType::Identifier, "Expect class name.")?
+            .clone();
+        self.consume(TokenType::LeftBrace, "Expect '{' before class body.")?;
+
+        let mut methods = Vec::new();
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            methods.push(self.parse_function("method")?);
+        }
+
+        self.consume(TokenType::RightBrace, "Expect '}' after class body.")?;
+
+        Ok(Stmt::Class { name, methods })
     }
 }

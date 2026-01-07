@@ -29,6 +29,11 @@ pub enum Stmt {
         body: Vec<Stmt>,    // 函数体是一组语句
     },
 
+    Class {
+        name: Token,
+        methods: Vec<Stmt>,
+    },
+
     // control flow
     Block {
         body: Vec<Stmt>,
@@ -91,6 +96,13 @@ impl Stmt {
             name: generate_token(TokenType::Identifier, name),
             params: param_tokens,
             body,
+        }
+    }
+
+    pub fn class(name: &str, methods: Vec<Stmt>) -> Stmt {
+        Stmt::Class {
+            name: generate_token(TokenType::Identifier, name),
+            methods,
         }
     }
 

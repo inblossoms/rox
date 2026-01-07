@@ -1,4 +1,5 @@
 use crate::ast::{AST, Expr, ExprId, Operator, Stmt};
+use crate::evaluate::value::{RoxClass, RoxInstance};
 use crate::evaluate::{environment::Environment, error::RuntimeError, value::Value};
 use crate::tokenizer::Token;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -216,6 +217,37 @@ impl Interpreter {
                     .define(name.lexeme.clone(), function);
                 Ok(())
             }
+            Stmt::Class { name, methods } => {
+                // 将 AST 中的方法 (Stmt::Function) 转换为运行时 Value::Function
+                let mut method_map = HashMap::new();
+                for method in methods {
+                    if let Stmt::Function {
+                        name: m_name,
+                        params,
+                        body,
+                    } = method
+                    {
+                        let function = Value::Function {
+                            name: m_name.lexeme.clone(),
+                            args: params.iter().map(|t| t.lexeme.clone()).collect(),
+                            body: body.clone(),
+                            closure: self.environment.clone(), // 闭包捕获当前环境
+                        };
+                        method_map.insert(m_name.lexeme.clone(), function);
+                    }
+                }
+
+                // 创建 Class 对象
+                let klass = RoxClass::new(name.lexeme.clone(), method_map);
+
+                // 定义到环境中
+                self.environment.borrow_mut().define(
+                    name.lexeme.clone(),
+                    Value::Class(Rc::new(RefCell::new(klass))),
+                );
+
+                Ok(())
+            }
             Stmt::Return { value, .. } => {
                 let return_val = if let Some(expr) = value {
                     self.evaluate(expr)?
@@ -384,9 +416,16 @@ impl Interpreter {
                 // callee 可能是一个表达式：func()(1);
                 // 如果 callee 是一个表达式: func()，则需要先求值
                 // 检查 callee 的类型是否是 Expr::Variable，如果是 evaluate 内部会自动调用 look_up_variable
-                let func = self.evaluate(callee)?;
+                let callee_value = self.evaluate(callee)?;
+                //  let callee_value = self.look_up_variable(name_token, id)?;
 
-                match func {
+                let mut arg_vals = Vec::new();
+                for arg in args {
+                    arg_vals.push(self.evaluate(arg)?);
+                }
+
+                match callee_value {
+                    // 函数调用
                     Value::Function {
                         args: param_names,
                         body,
@@ -420,6 +459,26 @@ impl Interpreter {
                             Err(e) => Err(e),                      // 其他错误继续抛出
                         }
                     }
+
+                    // 类实例化
+                    Value::Class(klass) => {
+                        // 参数检查
+                        // TODO: 检查 init 方法的参数个数
+                        if !arg_vals.is_empty() {
+                            return Err(RuntimeError::Generic(
+                                "0 arguments expected for class instantiation.".into(),
+                            ));
+                        }
+
+                        // 创建实例
+                        let instance = RoxInstance::new(klass.clone());
+
+                        // TODO: 如果有 init 方法，在这里调用
+
+                        // 返回实例
+                        Ok(Value::Instance(Rc::new(RefCell::new(instance))))
+                    }
+
                     _ => Err(RuntimeError::TypeError("Can only call functions".into())),
                 }
             }

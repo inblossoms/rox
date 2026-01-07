@@ -327,6 +327,9 @@ impl ParseHelper {
         if self.match_token(&[TokenType::Fun]) {
             return self.parse_function_declaration();
         }
+        if self.match_token(&[TokenType::Class]) {
+            return self.parse_class_declaration();
+        }
         // 允许空语句: ";", "for(;;);", "{ ; }"
         if self.match_token(&[TokenType::Semicolon]) {
             return Ok(Stmt::Empty);

@@ -1,6 +1,37 @@
 use crate::{ast::Stmt, evaluate::environment::Environment};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
+// 类 (Class) 运行时结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoxClass {
+    pub name: String,
+    pub methods: HashMap<String, Value>,
+}
+
+impl RoxClass {
+    pub fn new(name: String, methods: HashMap<String, Value>) -> Self {
+        Self { name, methods }
+    }
+}
+
+// 类实例 (Instance) 运行时结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoxInstance {
+    // 实例必须持有它所属的类
+    pub class: Rc<RefCell<RoxClass>>,
+    // 字段表
+    pub fields: RefCell<HashMap<String, Value>>,
+}
+
+impl RoxInstance {
+    pub fn new(class: Rc<RefCell<RoxClass>>) -> Self {
+        Self {
+            class,
+            fields: RefCell::new(HashMap::new()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
@@ -14,6 +45,9 @@ pub enum Value {
         body: Vec<Stmt>,
         closure: Rc<RefCell<Environment>>,
     },
+
+    Class(Rc<RefCell<RoxClass>>),
+    Instance(Rc<RefCell<RoxInstance>>),
 
     List(Vec<Value>),
     Tuple(Vec<Value>),
@@ -29,6 +63,10 @@ impl fmt::Display for Value {
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Nil => write!(f, "nil"),
             Value::Function { name, .. } => write!(f, "<fn {}>", name),
+            Value::Class(class) => write!(f, "<class {}>", class.borrow().name),
+            Value::Instance(instance) => {
+                write!(f, "<instance {}>", instance.borrow().class.borrow().name)
+            }
             Value::List(list) => write!(
                 f,
                 "[{}]",
@@ -85,6 +123,8 @@ impl Value {
             Value::Boolean(_) => "Boolean",
             Value::Nil => "Nil",
             Value::Function { .. } => "Function",
+            Value::Class(_) => "Class",
+            Value::Instance(_) => "Instance",
             Value::List(_) => "List",
             Value::Dict(_) => "Dict",
             Value::Tuple(_) => "Tuple",
