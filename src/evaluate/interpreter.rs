@@ -32,6 +32,7 @@ pub struct Interpreter {
     /// Side Table (Lookup Table)
     ///
     /// 存储由 `Resolver` (语义分析阶段) 计算出的静态作用域信息。
+    /// - Resolver 会浏览 AST携带产生了一些额外信息。行为上不应塞进 AST，应当把这些信息存在独立的表里。AST 做为“主表”，locals Map 即 “侧表”。
     /// - **Key (`ExprId`)**: 源代码中某个具体位置的变量引用（AST 节点 ID）。
     /// - **Value (`usize`)**: 该变量定义在距离当前环境多少层之外 (Hops/Distance)。
     ///
