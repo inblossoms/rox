@@ -1,43 +1,48 @@
 use std::{
     env,
-    io::{Write, stdin, stdout},
+    io::{self, Write},
 };
 
 use crate::{
     error::RoxError,
-    evaluate::{Interpreter, Value},
+    evaluate::{Interpreter, Value, error::RuntimeError},
     reader::Source,
+    resolver::Resolver,
 };
 
-mod ast;
-mod error;
-mod evaluate;
-mod parser;
-mod reader;
-mod tokenizer;
+pub mod ast;
+pub mod error;
+pub mod evaluate;
+pub mod parser;
+pub mod reader;
+pub mod resolver;
+pub mod tokenizer;
 
 fn main() -> Result<(), RoxError> {
     println!("lox v0.1.0 - A simple scripting language interpreter");
 
     let input_args = env::args().collect::<Vec<_>>();
-    let mut interpreter = Interpreter::new(); // 需要保证解释器在解析过程中的上下文一致性，所以将其提取到上层
+
+    // 实例化解释器 (包含 Global Environment)
+    // 在这里实例化是为了让 REPL 模式下可以保持变量状态
+    let mut interpreter = Interpreter::new();
 
     if input_args.len() == 1 {
         println!("Type 'help' for more information or press Ctrl+C to exit.");
-        Ok(run_prompt(&mut interpreter))
+        run_prompt(&mut interpreter);
+        Ok(())
     } else if input_args.len() == 2 {
         match run_file(&input_args[1], &mut interpreter) {
             Ok(r) => {
-                // 如果执行成功且有返回值，显示结果
+                // 如果是执行 script，在非显式 Print 的情况下通常不需要打印 Nil
                 if r != Value::Nil {
-                    println!("Result: {}", r);
-                } else {
-                    println!("Script executed successfully.");
+                    // 只有当脚本最后产生了一个非 Nil 值时才打印
+                    //   println!("Result: {}", r);
                 }
                 Ok(())
             }
             Err(e) => {
-                eprintln!("Error executing script! {e}");
+                eprintln!("Error: {}", e);
                 std::process::exit(1);
             }
         }
@@ -55,21 +60,27 @@ fn run_file(file: &str, interpreter: &mut Interpreter) -> Result<Value, RoxError
 fn run_prompt(interpreter: &mut Interpreter) {
     loop {
         print!("> ");
-        stdout().flush().unwrap();
+        io::stdout().flush().unwrap();
 
         let mut input = String::new();
-        stdin().read_line(&mut input).expect("Failed to read line");
-
-        let source = reader::Source { contents: input };
-        // 由于 interpreter 通过外部传入，所以不需要担心命令行输入时解析出的 code 上下文不一致导致的不期望结果
-        // 当 interpreter 在 loop 中被运行创建，那么每次运行都会创建一个新的上下文
-        match run_interpreter_with_state(source, interpreter) {
-            Ok(r) => {
-                if r != Value::Nil {
-                    println!("{:?}", r);
+        match io::stdin().read_line(&mut input) {
+            Ok(_) => {
+                let source = reader::Source { contents: input };
+                // REPL：如果出错，打印错误但不退出进程
+                match run_interpreter_with_state(source, interpreter) {
+                    Ok(r) => {
+                        // REPL：打印表达式结果
+                        if r != Value::Nil {
+                            println!("{}", r);
+                        }
+                    }
+                    Err(e) => eprintln!("{}", e),
                 }
             }
-            Err(e) => eprintln!("Read line goes wrong, failed info: {:?}", e),
+            Err(error) => {
+                eprintln!("Error reading input: {}", error);
+                break;
+            }
         }
     }
 }
@@ -79,10 +90,23 @@ fn run_interpreter_with_state(
     interpreter: &mut Interpreter,
 ) -> Result<Value, RoxError> {
     let tokens = tokenizer::tokenize(source)?;
-    //  println!("Tokens: {:#?}", tokens);
+    // println!("Tokens: {:#?}", tokens);
 
     let ast = parser::parse(tokens)?;
-    //  println!("AST: {:#?}", ast);
+    // println!("AST: {:#?}", ast);
+
+    // 语义分析 (Resolver)
+    let mut resolver = Resolver::new(interpreter);
+
+    if let Err(msg) = resolver.resolve_stmts(&ast.body) {
+        // 将 Resolver 的 String 错误转换为 RoxError
+        // 这里暂时借用 RuntimeError::Generic
+        // TODO: 定义 ResolutionError
+        return Err(RoxError::Evaluate(RuntimeError::Generic(format!(
+            "Resolution Error: {}",
+            msg
+        ))));
+    }
 
     let out = interpreter.interpret(ast)?;
 
