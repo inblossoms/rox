@@ -650,6 +650,7 @@ impl Interpreter {
         }
     }
 
+    /// 获取全局变量的值（仅在测试时可用）
     #[cfg(test)]
     pub fn get_global_value(&self, name: &str) -> Option<Value> {
         self.globals.borrow().get(name)
