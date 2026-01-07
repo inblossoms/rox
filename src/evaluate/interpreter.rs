@@ -29,7 +29,7 @@ pub struct Interpreter {
     ///   3. 存放 Native Functions（如 `clock()`）。
     pub globals: Rc<RefCell<Environment>>,
 
-    /// 变量作用域距离表 (Variable Scope Distance Table)
+    /// Side Table (Lookup Table)
     ///
     /// 存储由 `Resolver` (语义分析阶段) 计算出的静态作用域信息。
     /// - **Key (`ExprId`)**: 源代码中某个具体位置的变量引用（AST 节点 ID）。
