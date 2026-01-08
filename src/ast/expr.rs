@@ -87,6 +87,17 @@ pub enum Expr {
         callee: Box<Expr>,
         args: Vec<Expr>,
     },
+
+    Get {
+        object: Box<Expr>,
+        name: Token,
+    },
+
+    Set {
+        object: Box<Expr>,
+        name: Token,
+        value: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -201,6 +212,21 @@ impl Expr {
             id: ExprId(0),
             callee: Box::new(Expr::variable_str(name)),
             args,
+        }
+    }
+
+    pub fn get(object: Expr, name: Token) -> Expr {
+        Expr::Get {
+            object: Box::new(object),
+            name,
+        }
+    }
+
+    pub fn set(object: Expr, name: Token, value: Expr) -> Expr {
+        Expr::Set {
+            object: Box::new(object),
+            name,
+            value: Box::new(value),
         }
     }
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{Expr, ExprId, Stmt},
-    evaluate::Interpreter,
+    evaluate::{Interpreter, value},
     resolver::{FunctionType, LoopType, Resolver},
     tokenizer::Token,
 };
@@ -183,8 +183,6 @@ impl<'a> Resolver<'a> {
     /// 核心任务是找到所有的 Variable 和 Assign 节点，并调用 `resolve_local`。
     fn resolve_expr(&mut self, expr: &Expr) -> Result<(), String> {
         match expr {
-            // 1. 变量读取 (Variable Access)
-            // 这是 Resolver 最核心的逻辑点。
             Expr::Variable { id, name } => {
                 // 检查：禁止在初始化器中读取自己 "var a = a;"
                 // 此时 `a` 已声明 (in map) 但状态为 false (未定义)。
@@ -199,35 +197,21 @@ impl<'a> Resolver<'a> {
                 }
                 self.resolve_local(id, name);
             }
-
-            // 2. 变量赋值 (Assignment)
-            // 先解析右值（确保右值里的变量被解析），再解析左值变量的位置。
             Expr::Assign { id, name, expr } => {
                 self.resolve_expr(expr)?;
                 self.resolve_local(id, name);
             }
-
-            // 3. 复合赋值 (AssignOp)
-            // 逻辑同上。
             Expr::AssignOp { id, name, expr, .. } => {
                 self.resolve_expr(expr)?;
                 self.resolve_local(id, name);
             }
-
-            // 4. 二元/逻辑运算
-            // 递归解析左右子树。
             Expr::Binary { left, right, .. } | Expr::Logical { left, right, .. } => {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)?;
             }
-
-            // 5. 一元/分组
             Expr::Unary { expr, .. } | Expr::Grouping { expr } => {
                 self.resolve_expr(expr)?;
             }
-
-            // 6. 函数调用 (Call)
-            // 递归解析被调用者 (callee) 和参数。
             Expr::Call {
                 id: _,
                 callee,
@@ -239,8 +223,6 @@ impl<'a> Resolver<'a> {
                     self.resolve_expr(arg)?;
                 }
             }
-
-            // 7. 集合 (递归解析元素)
             Expr::List { elements } | Expr::Tuple { elements } => {
                 for e in elements {
                     self.resolve_expr(e)?;
@@ -252,9 +234,19 @@ impl<'a> Resolver<'a> {
                     self.resolve_expr(v)?;
                 }
             }
-
-            // 8. 字面量 (无需处理)
             Expr::Number { .. } | Expr::String { .. } | Expr::Boolean { .. } | Expr::Nil => {}
+            Expr::Get { object, name: _ } => {
+                // 只解析对象 (object)，属性名是动态的 不需要解析
+                self.resolve_expr(object)?;
+            }
+            Expr::Set {
+                object,
+                value,
+                name: _,
+            } => {
+                self.resolve_expr(value)?;
+                self.resolve_expr(object)?;
+            }
         }
         Ok(())
     }

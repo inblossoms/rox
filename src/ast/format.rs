@@ -71,6 +71,23 @@ pub fn format_expr(expr: &Expr) -> String {
             let args_str: Vec<String> = args.iter().map(format_expr).collect();
             format!("{}({})", format_expr(callee), args_str.join(", "))
         }
+
+        Expr::Get { object, name, .. } => {
+            format!("{}.{}", format_expr(object), name.lexeme)
+        }
+        Expr::Set {
+            object,
+            name,
+            value,
+            ..
+        } => {
+            format!(
+                "{}.{} = {}",
+                format_expr(object),
+                name.lexeme,
+                format_expr(value)
+            )
+        }
     }
 }
 

@@ -24,6 +24,16 @@ impl ParseHelper {
             if self.match_token(&[TokenType::LeftParen]) {
                 // 发现左括号，说明是函数调用，递归解析参数并包装 expr
                 expr = self.finish_call(expr)?;
+            } else if self.match_token(&[TokenType::Dot]) {
+                // “.” 的优先级和函数调用 (func()) 一样高
+                let name = self
+                    .consume(TokenType::Identifier, "Expect property name after '.'.")?
+                    .clone();
+
+                expr = Expr::Get {
+                    object: Box::new(expr),
+                    name,
+                };
             } else {
                 break;
             }

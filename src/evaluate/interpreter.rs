@@ -483,6 +483,56 @@ impl Interpreter {
                 }
             }
 
+            Expr::Get { object, name } => {
+                let obj = self.evaluate(object)?;
+
+                // 检查是否是实例
+                if let Value::Instance(instance_rc) = obj {
+                    let instance = instance_rc.borrow();
+
+                    if let Some(value) = instance.fields.borrow().get(&name.lexeme) {
+                        return Ok(value.clone());
+                    }
+
+                    // if let Some(method) = instance.class.borrow().find_method(&name.lexeme) { ... }
+
+                    return Err(RuntimeError::Generic(format!(
+                        "Undefined property '{}'.",
+                        name.lexeme
+                    )));
+                }
+
+                Err(RuntimeError::TypeError(
+                    "Only instances have properties.".into(),
+                ))
+            }
+
+            Expr::Set {
+                object,
+                name,
+                value,
+            } => {
+                let obj = self.evaluate(object)?;
+
+                // 检查是否是实例 只有实例才可以通过字段访问属性
+                if let Value::Instance(instance_rc) = obj {
+                    let val = self.evaluate(value)?;
+
+                    // 写入字段
+                    instance_rc
+                        .borrow()
+                        .fields
+                        .borrow_mut()
+                        .insert(name.lexeme.clone(), val.clone());
+
+                    return Ok(val);
+                }
+
+                Err(RuntimeError::TypeError(
+                    "Only instances have fields.".into(),
+                ))
+            }
+
             Expr::Grouping { expr } => self.evaluate(expr),
             Expr::Unary { op, expr } => {
                 // 1. 先递归求右侧表达式的值

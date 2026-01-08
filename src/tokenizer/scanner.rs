@@ -303,6 +303,7 @@ impl Scanner {
             "while" => TokenType::While,
             "continue" => TokenType::Continue,
             "break" => TokenType::Break,
+            "." => TokenType::Dot,
             _ => TokenType::Identifier,
         };
 
