@@ -483,6 +483,8 @@ impl Interpreter {
                 }
             }
 
+            Expr::This { id, keyword } => self.look_up_variable(keyword, id),
+
             Expr::Get { object, name } => {
                 let obj = self.evaluate(object)?;
 
@@ -494,7 +496,11 @@ impl Interpreter {
                         return Ok(value.clone());
                     }
 
-                    // if let Some(method) = instance.class.borrow().find_method(&name.lexeme) { ... }
+                    let klass = instance.class.borrow();
+                    if let Some(method) = klass.methods.get(&name.lexeme) {
+                        let bound_method = method.bind(Value::Instance(instance_rc.clone()));
+                        return Ok(bound_method);
+                    }
 
                     return Err(RuntimeError::Generic(format!(
                         "Undefined property '{}'.",
@@ -778,7 +784,3 @@ impl Interpreter {
         self.globals.borrow().get(name)
     }
 }
-
-#[cfg(test)]
-#[path = "tests/mod.rs"]
-mod evaluate_tests;

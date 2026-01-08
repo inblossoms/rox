@@ -131,4 +131,37 @@ impl Value {
             Value::Print(_) => "Print",
         }
     }
+
+    /// 将方法绑定到实例上
+    ///
+    /// 创建一个新的函数环境，其中 "this" 绑定到给定的 instance。
+    pub fn bind(&self, instance: Value) -> Value {
+        match self {
+            Value::Function {
+                name,
+                args,
+                body,
+                closure,
+            } => {
+                // 创建新环境，父环境是原函数的闭包
+                let environment =
+                    Rc::new(RefCell::new(Environment::with_enclosing(closure.clone())));
+
+                // 在新环境中定义 "this"
+                environment
+                    .borrow_mut()
+                    .define("this".to_string(), instance);
+
+                // 返回新的 Function，闭包指向包含 "this" 的环境
+                Value::Function {
+                    name: name.clone(),
+                    args: args.clone(),
+                    body: body.clone(),
+                    closure: environment,
+                }
+            }
+
+            _ => panic!("Only functions can be bound"),
+        }
+    }
 }

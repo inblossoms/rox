@@ -88,6 +88,8 @@ pub fn format_expr(expr: &Expr) -> String {
                 format_expr(value)
             )
         }
+
+        Expr::This { .. } => "this".to_string(),
     }
 }
 

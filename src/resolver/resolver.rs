@@ -26,6 +26,12 @@ pub enum LoopType {
     Loop,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum ClassType {
+    None,
+    Class,
+}
+
 /// 语义分析器 (Resolver)
 ///
 /// `Resolver` 是解释器工作流中的关键步骤之一，位于 Parser 和 Interpreter 阶段之间。
@@ -65,6 +71,8 @@ pub struct Resolver<'a> {
     /// 用于检查 `return` 语句是否出现在合法的位置。
     /// 每当进入函数定义时，保存旧状态并设置为 `FunctionType::Function`；退出时恢复。
     pub current_function: FunctionType,
+
+    pub current_class: ClassType,
 
     /// 当前循环上下文状态
     ///

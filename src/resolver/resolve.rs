@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{Expr, ExprId, Stmt},
-    evaluate::{Interpreter, value},
-    resolver::{FunctionType, LoopType, Resolver},
+    evaluate::Interpreter,
+    resolver::{ClassType, FunctionType, LoopType, Resolver},
     tokenizer::Token,
 };
 
@@ -17,6 +17,7 @@ impl<'a> Resolver<'a> {
             interpreter,
             scopes: Vec::new(),
             current_function: FunctionType::None,
+            current_class: ClassType::None,
             current_loop: LoopType::None,
         }
     }
@@ -69,11 +70,19 @@ impl<'a> Resolver<'a> {
             }
 
             Stmt::Class { name, methods } => {
+                let enclosing_class = self.current_class;
+                self.current_class = ClassType::Class;
+
                 self.declare(name)?;
                 self.define(name);
 
-                // 当前实现阶段并不运行方法，但也要解析方法体内的变量
-                // 可以防止 "return" 出现在方法外等错误
+                self.begin_scope(); // 创建用于存放 'this' 新作用域，this 特殊的局部变量
+
+                // 手动插入到 scope map 中，视为已定义(true)
+                if let Some(scope) = self.scopes.last_mut() {
+                    scope.insert("this".to_string(), true);
+                }
+
                 // TODO: 这里将来要设置 current_function = Method
                 for method in methods {
                     if let Stmt::Function {
@@ -82,9 +91,13 @@ impl<'a> Resolver<'a> {
                         body,
                     } = method
                     {
+                        // 方法在类里解析
                         self.resolve_function(params, body, FunctionType::Function)?;
                     }
                 }
+
+                self.end_scope();
+                self.current_class = enclosing_class;
             }
 
             // 表达式语句 递归解析内部表达式。
@@ -247,20 +260,30 @@ impl<'a> Resolver<'a> {
                 self.resolve_expr(value)?;
                 self.resolve_expr(object)?;
             }
+            Expr::This { id, keyword } => {
+                if self.current_class == ClassType::None {
+                    return Err(format!(
+                        "[line {}] Can't use 'this' outside of a class.",
+                        keyword.line
+                    ));
+                }
+                // 像解析普通局部变量一样解析 'this'
+                self.resolve_local(id, keyword);
+            }
         }
         Ok(())
     }
 
-    // --- 核心辅助方法 ---
+    // helper
 
-    /// 开启新作用域
+    /// 将进入新作用域
     ///
     /// 向作用域栈压入一个新的 HashMap。
     fn begin_scope(&mut self) {
         self.scopes.push(HashMap::new());
     }
 
-    /// 关闭作用域
+    /// 退出作用域
     ///
     /// 从作用域栈弹出一个 HashMap，销毁其中定义的局部变量。
     fn end_scope(&mut self) {
@@ -302,7 +325,7 @@ impl<'a> Resolver<'a> {
             .insert(name.lexeme.clone(), true);
     }
 
-    /// 核心：解析局部变量 (Resolve Local)
+    /// Core：解析局部变量 (Resolve Local)
     ///
     /// 从当前作用域开始，向外层作用域遍历，寻找变量声明。
     ///
@@ -313,7 +336,7 @@ impl<'a> Resolver<'a> {
         // 从最内层 (scopes.len() - 1) 向外层 (0) 遍历
         for (i, scope) in self.scopes.iter().rev().enumerate() {
             if scope.contains_key(&name.lexeme) {
-                // 找到了！i 就是 distance (跳跃步数)
+                // i 就是 distance (跳跃步数)
                 self.interpreter.resolve(*id, i);
                 return;
             }

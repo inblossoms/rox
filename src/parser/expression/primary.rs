@@ -100,7 +100,6 @@ impl ParseHelper {
     /// # 错误处理
     /// 如果当前 Token 不匹配上述任何情况，将返回 "Unexpected token" 错误。
     pub fn parse_primary(&mut self) -> Result<Expr, Error> {
-        // --- 字面量 ---
         if self.match_token(&[TokenType::False]) {
             return Ok(Expr::Boolean { value: false });
         }
@@ -125,7 +124,12 @@ impl ParseHelper {
             };
             return Ok(Expr::String { value });
         }
-
+        if self.match_token(&[TokenType::This]) {
+            return Ok(Expr::This {
+                id: self.generate_id(),
+                keyword: self.previous().clone(),
+            });
+        }
         if self.match_token(&[TokenType::Identifier]) {
             // 变量引用需要 ID 供 Resolver 使用
             return Ok(Expr::Variable {

@@ -98,6 +98,11 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>,
     },
+
+    This {
+        id: ExprId,
+        keyword: Token,
+    },
 }
 
 impl Expr {
@@ -227,6 +232,13 @@ impl Expr {
             object: Box::new(object),
             name,
             value: Box::new(value),
+        }
+    }
+
+    pub fn this(keyword: Token) -> Expr {
+        Expr::This {
+            id: ExprId(0),
+            keyword,
         }
     }
 
