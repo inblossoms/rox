@@ -104,3 +104,49 @@ fn test_this_outside_class() {
     let code = "print this;";
     assert!(eval_res(code).is_err()); // Resolver will panic
 }
+
+#[test]
+fn test_inheritance() {
+    let code = r#"
+        class Doughnut {
+            cook() {
+                return "Fry until golden brown.";
+            }
+        }
+
+        class BostonCream < Doughnut {}
+
+        var res = BostonCream().cook();
+    "#;
+    assert_eq!(
+        eval_res(code).unwrap(),
+        Value::String("Fry until golden brown.".to_string())
+    );
+}
+
+#[test]
+fn test_super_call() {
+    let code = r#"
+        class A {
+            method() {
+                return "A";
+            }
+        }
+
+        class B < A {
+            method() {
+                return "B";
+            }
+            test() {
+                return super.method();
+            }
+        }
+
+        class C < B {}
+
+        var res = C().test();
+    "#;
+    // C 继承 B，B 继承 A。
+    // C().test() -> B.test() -> super.method() -> A.method() -> "A"
+    assert_eq!(eval_res(code).unwrap(), Value::String("A".to_string()));
+}
