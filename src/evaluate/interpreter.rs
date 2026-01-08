@@ -500,21 +500,68 @@ impl Interpreter {
 
                     // 类实例化
                     Value::Class(klass) => {
-                        // 参数检查
-                        // TODO: 检查 init 方法的参数个数
-                        if !arg_vals.is_empty() {
-                            return Err(RuntimeError::Generic(
-                                "0 arguments expected for class instantiation.".into(),
-                            ));
+                        // 创建实例
+                        let instance = Rc::new(RefCell::new(RoxInstance::new(klass.clone())));
+
+                        // 是否有初始化器 (init)
+                        let initializer = klass.borrow().find_method("init");
+
+                        if let Some(init_method) = initializer {
+                            // 有 init 方法：绑定并调用
+
+                            // 绑定 'this' 到新创建的 instance
+                            //     Note：init_method 是 Value::Function，bind 返回一个新的 Value::Function
+                            let bound_init = init_method.bind(Value::Instance(instance.clone()));
+
+                            // 解包绑定后的函数，准备执行
+                            if let Value::Function {
+                                args: param_names,
+                                body,
+                                closure,
+                                ..
+                            } = bound_init
+                            {
+                                // 检查参数数量
+                                if arg_vals.len() != param_names.len() {
+                                    return Err(RuntimeError::Generic(format!(
+                                        "Expected {} arguments but got {}.",
+                                        param_names.len(),
+                                        arg_vals.len()
+                                    )));
+                                }
+
+                                // 创建环境并绑定参数
+                                let func_env =
+                                    Rc::new(RefCell::new(Environment::with_enclosing(closure)));
+                                for (i, param_name) in param_names.iter().enumerate() {
+                                    func_env
+                                        .borrow_mut()
+                                        .define(param_name.clone(), arg_vals[i].clone());
+                                }
+
+                                // 执行 init 函数体
+                                let result =
+                                    self.execute_block(&body, (*func_env).clone().into_inner());
+
+                                // 处理 init 的执行结果
+                                match result {
+                                    Ok(_) => {}                        // init 正常执行完毕
+                                    Err(RuntimeError::Return(_)) => {} // 捕获 return; (Resolver 会确保 init 不能 return value)
+                                    Err(e) => return Err(e),
+                                }
+                            }
+                        } else {
+                            // 没有 init 方法：参数必须为空
+                            if !arg_vals.is_empty() {
+                                return Err(RuntimeError::Generic(format!(
+                                    "Expected 0 arguments but got {}.",
+                                    arg_vals.len()
+                                )));
+                            }
                         }
 
-                        // 创建实例
-                        let instance = RoxInstance::new(klass.clone());
-
-                        // TODO: 如果有 init 方法，在这里调用
-
-                        // 返回实例
-                        Ok(Value::Instance(Rc::new(RefCell::new(instance))))
+                        // 无论是否有 init，实例化的结果永远是 instance 本身
+                        Ok(Value::Instance(instance))
                     }
 
                     _ => Err(RuntimeError::TypeError("Can only call functions".into())),
