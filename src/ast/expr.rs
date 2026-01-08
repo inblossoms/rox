@@ -103,6 +103,12 @@ pub enum Expr {
         id: ExprId,
         keyword: Token,
     },
+
+    Super {
+        id: ExprId,
+        keyword: Token,
+        method: Token,
+    },
 }
 
 impl Expr {
@@ -239,6 +245,13 @@ impl Expr {
         Expr::This {
             id: ExprId(0),
             keyword,
+        }
+    }
+    pub fn super_(keyword: Token, method: Token) -> Expr {
+        Expr::Super {
+            id: ExprId(0),
+            keyword,
+            method,
         }
     }
 

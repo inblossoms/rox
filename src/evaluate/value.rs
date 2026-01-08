@@ -6,11 +6,35 @@ use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 pub struct RoxClass {
     pub name: String,
     pub methods: HashMap<String, Value>,
+    /// 存储父类，以便查找方法时进行回溯
+    pub superclass: Option<Rc<RefCell<RoxClass>>>,
 }
 
 impl RoxClass {
-    pub fn new(name: String, methods: HashMap<String, Value>) -> Self {
-        Self { name, methods }
+    pub fn new(
+        name: String,
+        methods: HashMap<String, Value>,
+        superclass: Option<Rc<RefCell<RoxClass>>>,
+    ) -> Self {
+        Self {
+            name,
+            methods,
+            superclass,
+        }
+    }
+
+    /// 查找方法（支持继承）
+    // 如果当前类找不到，递归去父类找
+    pub fn find_method(&self, name: &str) -> Option<Value> {
+        if let Some(method) = self.methods.get(name) {
+            return Some(method.clone());
+        }
+
+        if let Some(superclass) = &self.superclass {
+            return superclass.borrow().find_method(name);
+        }
+
+        None
     }
 }
 

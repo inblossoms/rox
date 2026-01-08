@@ -67,6 +67,8 @@ pub fn format_expr(expr: &Expr) -> String {
             format!("(group {})", format_expr(expr))
         }
 
+        Expr::Super { method, .. } => format!("super.{}", method.lexeme),
+
         Expr::Call { callee, args, .. } => {
             let args_str: Vec<String> = args.iter().map(format_expr).collect();
             format!("{}({})", format_expr(callee), args_str.join(", "))
@@ -118,10 +120,20 @@ pub fn format_stmt(stmt: &Stmt) -> String {
                 body_str
             )
         }
-        Stmt::Class { name, methods } => {
+        Stmt::Class {
+            name,
+            superclass,
+            methods,
+        } => {
+            let super_class = match superclass {
+                Some(super_expr) => format!("< {}", format_expr(super_expr)),
+                None => "".to_string(),
+            };
+
             format!(
-                "class {} {{ {} }}",
+                "class {} {} {{ {} }}",
                 name.lexeme,
+                super_class,
                 methods
                     .iter()
                     .map(|m| format_stmt(m))

@@ -31,6 +31,7 @@ pub enum Stmt {
 
     Class {
         name: Token,
+        superclass: Option<Expr>,
         methods: Vec<Stmt>,
     },
 
@@ -99,9 +100,10 @@ impl Stmt {
         }
     }
 
-    pub fn class(name: &str, methods: Vec<Stmt>) -> Stmt {
+    pub fn class(name: &str, superclass: Option<Expr>, methods: Vec<Stmt>) -> Stmt {
         Stmt::Class {
             name: generate_token(TokenType::Identifier, name),
+            superclass,
             methods,
         }
     }

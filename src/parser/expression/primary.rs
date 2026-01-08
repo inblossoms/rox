@@ -124,6 +124,19 @@ impl ParseHelper {
             };
             return Ok(Expr::String { value });
         }
+        if self.match_token(&[TokenType::Super]) {
+            let keyword = self.previous().clone();
+            self.consume(TokenType::Dot, "Expect '.' after 'super'.")?;
+            let method = self
+                .consume(TokenType::Identifier, "Expect superclass method name.")?
+                .clone();
+
+            return Ok(Expr::Super {
+                id: self.generate_id(),
+                keyword,
+                method,
+            });
+        }
         if self.match_token(&[TokenType::This]) {
             return Ok(Expr::This {
                 id: self.generate_id(),

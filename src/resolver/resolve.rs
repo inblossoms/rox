@@ -69,12 +69,44 @@ impl<'a> Resolver<'a> {
                 self.resolve_function(params, body, FunctionType::Function)?;
             }
 
-            Stmt::Class { name, methods } => {
+            // 环境链设计：当解析子类时，环境栈应该长这样：
+            //    [ ...全局... ] -> [ "super" ] -> [ "this" ] -> [ 方法体 ]
+            // 这样，在方法体里，this 距离是 0 (相对)，super 距离是 1 (相对)。
+            Stmt::Class {
+                name,
+                superclass,
+                methods,
+            } => {
                 let enclosing_class = self.current_class;
                 self.current_class = ClassType::Class;
 
                 self.declare(name)?;
                 self.define(name);
+
+                // 解析父类表达式
+                if let Some(super_expr) = superclass {
+                    self.current_class = ClassType::Subclass; // 标记为子类
+
+                    // 检查自继承: class A < A {}
+                    if let Expr::Variable {
+                        name: super_name, ..
+                    } = super_expr
+                    {
+                        if name.lexeme == super_name.lexeme {
+                            return Err("A class can't inherit from itself.".to_string());
+                        }
+                    }
+
+                    self.resolve_expr(super_expr)?;
+                }
+
+                // Core：如果有父类，开启新的作用域，定义 "super"
+                if superclass.is_some() {
+                    self.begin_scope();
+                    if let Some(scope) = self.scopes.last_mut() {
+                        scope.insert("super".to_string(), true);
+                    }
+                }
 
                 self.begin_scope(); // 创建用于存放 'this' 新作用域，this 特殊的局部变量
 
@@ -83,20 +115,29 @@ impl<'a> Resolver<'a> {
                     scope.insert("this".to_string(), true);
                 }
 
-                // TODO: 这里将来要设置 current_function = Method
                 for method in methods {
                     if let Stmt::Function {
-                        name: _,
                         params,
                         body,
+                        name: method_name,
                     } = method
                     {
-                        // 方法在类里解析
-                        self.resolve_function(params, body, FunctionType::Function)?;
+                        let declaration = if method_name.lexeme == "init" {
+                            FunctionType::Initializer
+                        } else {
+                            FunctionType::Method
+                        };
+                        // 传入具体类型
+                        self.resolve_function(params, body, declaration)?;
                     }
                 }
 
-                self.end_scope();
+                self.end_scope(); // 结束 "this" 作用域
+
+                if superclass.is_some() {
+                    self.end_scope(); //结束 "super" 作用域
+                }
+
                 self.current_class = enclosing_class;
             }
 
@@ -160,13 +201,24 @@ impl<'a> Resolver<'a> {
 
             // Return 检查 `return` 是否非法出现在顶层代码中。
             Stmt::Return { keyword, value } => {
+                // 检查是否在函数中
                 if self.current_function == FunctionType::None {
                     return Err(format!(
                         "[line {}] Can't return from top-level code.",
                         keyword.line
                     ));
                 }
+
+                // 检查是否有返回值
                 if let Some(val) = value {
+                    // 如果是初始化器，禁止返回具体值
+                    if self.current_function == FunctionType::Initializer {
+                        return Err(format!(
+                            "[line {}] Can't return a value from an initializer.",
+                            keyword.line
+                        ));
+                    }
+
                     self.resolve_expr(val)?;
                 }
             }
@@ -235,6 +287,22 @@ impl<'a> Resolver<'a> {
                 for arg in args {
                     self.resolve_expr(arg)?;
                 }
+            }
+            Expr::Super { id, keyword, .. } => {
+                if self.current_class == ClassType::None {
+                    return Err(format!(
+                        "[line {}] Can't use 'super' outside of a class.",
+                        keyword.line
+                    ));
+                } else if self.current_class != ClassType::Subclass {
+                    return Err(format!(
+                        "[line {}] Can't use 'super' in a class with no superclass.",
+                        keyword.line
+                    ));
+                }
+
+                // 解析 "super" 变量
+                self.resolve_local(id, keyword);
             }
             Expr::List { elements } | Expr::Tuple { elements } => {
                 for e in elements {

@@ -1,5 +1,5 @@
 use crate::{
-    ast::Stmt,
+    ast::{Expr, Stmt},
     parser::{error::Error, parse::ParseHelper},
     tokenizer::TokenType,
 };
@@ -81,6 +81,18 @@ impl ParseHelper {
         let name = self
             .consume(TokenType::Identifier, "Expect class name.")?
             .clone();
+
+        let superclass = if self.match_token(&[TokenType::Less]) {
+            self.consume(TokenType::Identifier, "Expect superclass name.")?;
+            // 父类必须是一个变量引用
+            Some(Expr::Variable {
+                id: self.generate_id(),
+                name: self.previous().clone(),
+            })
+        } else {
+            None
+        };
+
         self.consume(TokenType::LeftBrace, "Expect '{' before class body.")?;
 
         let mut methods = Vec::new();
@@ -90,6 +102,10 @@ impl ParseHelper {
 
         self.consume(TokenType::RightBrace, "Expect '}' after class body.")?;
 
-        Ok(Stmt::Class { name, methods })
+        Ok(Stmt::Class {
+            name,
+            superclass,
+            methods,
+        })
     }
 }

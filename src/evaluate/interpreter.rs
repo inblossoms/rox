@@ -217,7 +217,39 @@ impl Interpreter {
                     .define(name.lexeme.clone(), function);
                 Ok(())
             }
-            Stmt::Class { name, methods } => {
+            Stmt::Class {
+                name,
+                superclass,
+                methods,
+            } => {
+                // 处理父类
+                let mut super_klass: Option<Rc<RefCell<RoxClass>>> = None;
+
+                if let Some(expr) = superclass {
+                    let val = self.evaluate(expr)?;
+                    if let Value::Class(c) = val {
+                        super_klass = Some(c);
+                    } else {
+                        return Err(RuntimeError::TypeError(
+                            "Superclass must be a class.".into(),
+                        ));
+                    }
+                }
+
+                // Core：如果存在父类，我们需要创建一个环境闭包
+                // Note：类定义时的环境就是它的闭包。
+                //     如果我们用了 "super" 作用域，我们需要在 define class 之前处理环境。
+                //     在这里的实现逻辑中，让 environment 指向一个新的环境，
+                //     里面包含了 "super" -> superclass。
+                if let Some(ref s) = super_klass {
+                    self.environment = Rc::new(RefCell::new(Environment::with_enclosing(
+                        self.environment.clone(),
+                    )));
+                    self.environment
+                        .borrow_mut()
+                        .define("super".to_string(), Value::Class(s.clone()));
+                }
+
                 // 将 AST 中的方法 (Stmt::Function) 转换为运行时 Value::Function
                 let mut method_map = HashMap::new();
                 for method in methods {
@@ -238,7 +270,14 @@ impl Interpreter {
                 }
 
                 // 创建 Class 对象
-                let klass = RoxClass::new(name.lexeme.clone(), method_map);
+                let klass = RoxClass::new(name.lexeme.clone(), method_map, super_klass.clone());
+
+                // 恢复环境 (弹出包含 super 的环境)
+                if super_klass.is_some() {
+                    // environment = environment.enclosing
+                    let enclosing = self.environment.borrow().enclosing.clone();
+                    self.environment = enclosing.unwrap();
+                }
 
                 // 定义到环境中
                 self.environment.borrow_mut().define(
@@ -288,7 +327,6 @@ impl Interpreter {
                 Ok(Value::Dict(dict))
             }
 
-            // 变量访问 (集成 Resolver)
             Expr::Variable { id, name } => self.look_up_variable(name, id),
 
             Expr::Assign { id, name, expr } => {
@@ -313,12 +351,12 @@ impl Interpreter {
             }
 
             Expr::AssignOp { id, name, op, expr } => {
-                // 1. 获取当前值 (Read)
+                // 获取当前值 (Read)
                 // 这里也应该走 look_up_variable，但 look_up 需要 ExprId
                 // 如果你的 AST 中 AssignOp 有 ID，就这样写：
                 let current_val = self.look_up_variable(name, id)?;
 
-                // 2. 计算 (Compute)
+                // 计算 (Compute)
                 let right_val = self.evaluate(expr)?;
                 let new_val = match op {
                     Operator::Add => self.add_values(current_val, right_val)?,
@@ -326,7 +364,7 @@ impl Interpreter {
                     _ => return Err(RuntimeError::Generic("Invalid assign op".into())),
                 };
 
-                // 3. 赋值回 (Write)
+                // 赋值回 (Write)
                 if let Some(&distance) = self.locals.get(id) {
                     self.environment.borrow_mut().assign_at(
                         distance,
@@ -496,8 +534,7 @@ impl Interpreter {
                         return Ok(value.clone());
                     }
 
-                    let klass = instance.class.borrow();
-                    if let Some(method) = klass.methods.get(&name.lexeme) {
+                    if let Some(method) = instance.class.borrow().find_method(&name.lexeme) {
                         let bound_method = method.bind(Value::Instance(instance_rc.clone()));
                         return Ok(bound_method);
                     }
@@ -566,6 +603,39 @@ impl Interpreter {
                         op
                     ))),
                 }
+            }
+            Expr::Super { id, method, .. } => {
+                // 查找 "super" 获取父类对象
+                // Resolver 保证了 "super" 在 distance 处
+                let distance = *self.locals.get(id).unwrap();
+                let superclass = self.environment.borrow().get_at(distance, "super").unwrap();
+
+                // 查找 "this" 获取实例对象
+                // Tip：Resolver 的环境链是 super -> this。
+                //      所以 this 一定在 super 的下一层 (distance - 1)。
+                let instance = self
+                    .environment
+                    .borrow()
+                    .get_at(distance - 1, "this")
+                    .unwrap();
+
+                // 解包
+                let super_klass = if let Value::Class(c) = superclass {
+                    c
+                } else {
+                    panic!("Super not class")
+                };
+
+                // 查找并绑定方法
+                if let Some(method_val) = super_klass.borrow().find_method(&method.lexeme) {
+                    // 绑定到当前的 instance
+                    return Ok(method_val.bind(instance)); // 绑定 this
+                }
+
+                Err(RuntimeError::UndefinedVariable(format!(
+                    "Undefined property '{}'.",
+                    method.lexeme
+                )))
             }
         }
     }

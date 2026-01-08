@@ -10,8 +10,13 @@ pub enum FunctionType {
     /// 当前不在任何函数内（顶层代码），此时使用 `return` 是非法的。
     None,
     /// 当前处于函数体内，此时可以使用 `return`。
-    /// TODO: 扩展类方法或构造函数，eg. `Method`, `Initializer`
     Function,
+    /// 类方法：类方法定义内部，`this` 引用的变量为类的实例变量。
+    /// 行为和普通 Function 一样，允许 return value。
+    Method,
+    /// init: 类的构造函数
+    /// 允许写 return; (用于提前结束构造)，但严禁 return value;，(Note: 构造函数永远只会返回 this)
+    Initializer,
 }
 
 /// 循环上下文
@@ -30,6 +35,8 @@ pub enum LoopType {
 pub enum ClassType {
     None,
     Class,
+    /// 子类状态
+    Subclass,
 }
 
 /// 语义分析器 (Resolver)
