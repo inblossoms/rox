@@ -60,3 +60,47 @@ fn test_class_property_undefined() {
 
     assert!(eval_res(code).is_err());
 }
+
+#[test]
+fn test_class_this_binding() {
+    let code = r#"
+        class Egotist {
+            speak() {
+                return this;
+            }
+        }
+
+        var res = Egotist().speak();
+    "#;
+
+    let ret = eval_res(code).unwrap();
+    // 检查是否可以像闭包一样被传递，并且 "this" 是持久绑定的
+    assert_eq!(ret.to_string(), "<instance Egotist>");
+}
+
+#[test]
+fn test_class_method_access_fields() {
+    let code = r#"
+        class Cake {
+            taste() {
+                var adjective = "delicious";
+                return "The " + this.flavor + " cake is " + adjective + "!";
+            }
+        }
+
+        var cake = Cake();
+        cake.flavor = "German chocolate";
+        var res = cake.taste(); 
+    "#;
+
+    assert_eq!(
+        eval_res(code).unwrap(),
+        Value::String("The German chocolate cake is delicious!".to_string())
+    );
+}
+
+#[test]
+fn test_this_outside_class() {
+    let code = "print this;";
+    assert!(eval_res(code).is_err()); // Resolver will panic
+}
