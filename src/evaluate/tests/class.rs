@@ -33,3 +33,30 @@ fn test_class_instantiation_internal() {
         panic!("Expected Value::Instance, got {:?}", result);
     }
 }
+
+#[test]
+fn test_class_properties() {
+    let code = r#"
+        class Toast {}
+        var toast = Toast();
+        
+        // 1. Set property
+        toast.jam = "grape";
+        
+        // 2. Get property and check result
+        var res = toast.jam; 
+    "#;
+
+    assert_eq!(eval_res(code).unwrap(), Value::String("grape".to_string()));
+}
+
+#[test]
+fn test_class_property_undefined() {
+    let code = r#"
+        class T {}
+        var t = T();
+        print t.missing; // Should runtime error
+    "#;
+
+    assert!(eval_res(code).is_err());
+}
