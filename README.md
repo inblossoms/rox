@@ -153,7 +153,7 @@ src/
 
 ## 🤝 Contributing
 
-Contributions are welcome! If you are interested in fixing a bug or adding a new feature, please read our [CONTRIBUTING.md](CONTRIBUTING.md) guide first to set up your development environment.
+Contributions are welcome! If you are interested in fixing a bug or adding a new feature, please read our [🇨🇳 中文指南](#中文指南) | [🇬🇧 English Guidelines](#english-guidelines) guide first to set up your development environment.
 
 ## ⚖️ License
 

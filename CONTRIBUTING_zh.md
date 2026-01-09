@@ -1,9 +1,5 @@
 # Contributing to Rox
 
-<a href="./CONTRIBUTING.md">[🇬🇧 English Guidelines](#CONTRIBUTING.md)</a>
-
----
-
 <a name="中文指南"></a>
 
 ## 🇨🇳 中文指南
