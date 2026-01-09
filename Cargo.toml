@@ -3,4 +3,30 @@ name = "rox"
 version = "0.1.0"
 edition = "2024"
 authors = ["Ray <https://github.com/inblossoms/rox>"]
-description = "A simple programming language interpreter written in Rust, inspired by Lox from the Crafting Interpreters book."
+description = "A simple programming language interpreter written in Rust"
+license = "MIT"
+repository = "https://github.com/inblossoms/rox"
+readme = "README.md"
+keywords = ["interpreter", "rox", "compiler", "language"]
+categories = ["compilers", "command-line-utilities"]
+default-run = "rox"
+
+[[bin]]
+name = "rox"
+
+[dev-dependencies]
+pretty_assertions = { version = "1.4.1", default-features = false, features = [
+	"alloc",
+] }
+
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
