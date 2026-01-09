@@ -151,6 +151,10 @@ src/
 └── main.rs         // Entry point (CLI)
 ```
 
+## 🤝 Contributing
+
+Contributions are welcome! If you are interested in fixing a bug or adding a new feature, please read our [CONTRIBUTING.md](CONTRIBUTING.md) guide first to set up your development environment.
+
 ## ⚖️ License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
