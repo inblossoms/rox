@@ -53,5 +53,5 @@ jobs:
       - name: Smoke Test Binary
         run: |
           ./target/release/rox --help || true
-          echo "var a = 1; print a;" > test.lox
-          ./target/release/rox test.lox
+          echo "var a = 1; print a;" > test.rox
+          ./target/release/rox test.rox
