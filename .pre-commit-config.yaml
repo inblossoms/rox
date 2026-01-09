@@ -1,0 +1,60 @@
+fail_fast: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: fix-byte-order-marker
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.42.0
+    hooks:
+      - id: typos
+        # 在 args 中添加需要排除的某些文件，或者使用 _typos.toml 配置
+        args: [--exclude, .github/workflows/*, --exclude, .pre-commit-config.yaml]
+
+  # 本地 Rust 工具链 (利用本地增量编译缓存)
+  - repo: local
+    hooks:
+      # Format
+      - id: cargo-fmt
+        name: cargo fmt
+        description: Format files with rustfmt.
+        entry: cargo fmt --all -- --check
+        language: system # 直接调用 PATH 里的 cargo
+        types: [rust]    # 自动匹配 .rs 文件
+        pass_filenames: false # fmt --all 不需要文件名列表
+
+      # Clippy (包含 Check 功能)
+      - id: cargo-clippy
+        name: cargo clippy
+        description: Lint rust sources
+        entry: cargo clippy --all-targets --all-features -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      # Deny (依赖检查)
+      - id: cargo-deny
+        name: cargo deny
+        description: Check cargo dependencies
+        entry: cargo deny check
+        language: system
+        files: ^Cargo\.(toml|lock)$ # 只有当依赖文件变更时触发
+        pass_filenames: false
+
+      # Test (使用 nextest)
+      - id: cargo-test
+        name: cargo nextest
+        description: unit test for the project
+        entry: cargo nextest run --all-features
+        language: system
+        types: [rust]
+        pass_filenames: false

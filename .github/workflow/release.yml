@@ -1,0 +1,54 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_name: rox
+            asset_name: rox-linux-amd64
+
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary_name: rox
+            asset_name: rox-macos-amd64
+
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary_name: rox.exe
+            asset_name: rox-windows-amd64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }} --verbose
+
+      - name: Rename binary
+        shell: bash
+        run: |
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "${{ matrix.asset_name }}"
+
+      - name: Upload binaries to release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ matrix.asset_name }}
