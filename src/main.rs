@@ -19,13 +19,13 @@ pub mod resolver;
 pub mod tokenizer;
 
 fn main() -> Result<(), RoxError> {
-    println!("lox v0.1.0 - A simple scripting language interpreter");
+    println!("rox v0.1.0 - A simple scripting language interpreter");
 
     let input_args = env::args().collect::<Vec<_>>();
 
     // 实例化解释器 (包含 Global Environment)
     // 在这里实例化是为了让 REPL 模式下可以保持变量状态
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::default();
 
     if input_args.len() == 1 {
         println!("Type 'help' for more information or press Ctrl+C to exit.");

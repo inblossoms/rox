@@ -16,7 +16,7 @@ pub fn parse_to_string(source: &str) -> Result<Vec<String>, String> {
     let ast = parse(tokens).map_err(|e| format!("Parse Error: {}", e))?;
 
     // 3. Format
-    let output: Vec<String> = ast.body.iter().map(|stmt| format_stmt(stmt)).collect();
+    let output: Vec<String> = ast.body.iter().map(format_stmt).collect();
 
     Ok(output)
 }

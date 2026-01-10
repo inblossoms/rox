@@ -90,7 +90,7 @@ impl Scanner {
                 .collect::<String>();
         }
 
-        return self.source[self.start..self.current].iter().collect();
+        self.source[self.start..self.current].iter().collect()
     }
 
     /// 添加一个带有字面值的标记到标记列表
@@ -325,12 +325,12 @@ impl Scanner {
         self.tokens
             .push(Token::new(TokenType::Eof, "", self.line, Literal::None));
 
-        if self.errors.len() > 0 {
-            return Err(ScannerError(self.errors.clone()));
+        if !self.errors.is_empty() {
+            Err(ScannerError(self.errors.clone()))
         } else {
-            return Ok(Tokens {
+            Ok(Tokens {
                 tokens: self.tokens.clone(),
-            });
+            })
         }
     }
     // 处理多行注释

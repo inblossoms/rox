@@ -69,7 +69,8 @@ pub struct Resolver<'a> {
     /// * **Map Key**: 变量名 (`String`)。
     /// * **Map Value**: 初始化状态 (`bool`)。
     ///   - `false`: **已声明但未定义 (Declared)**。变量名已进入作用域，但初始化表达式尚未解析完毕。
-    ///              用于检测 `var a = a;` 这种错误。
+    ///
+    /// 用于检测 `var a = a;` 这种错误。
     ///   - `true`: **已定义 (Defined)**。变量已初始化完毕，可以安全使用。
     pub scopes: Vec<HashMap<String, bool>>,
 

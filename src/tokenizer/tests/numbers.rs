@@ -1,4 +1,7 @@
+use std::f64::consts;
+
 use crate::tokenizer::{Literal, Token, TokenType, scanner::Scanner};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn integer() {
@@ -15,12 +18,14 @@ fn integer() {
 
 #[test]
 fn float() {
-    let mut scanner = Scanner::new("3.14159");
+    let pi = consts::PI.to_string();
+    let mut scanner = Scanner::new(&pi);
+
     let tokens = scanner.scan_tokens();
     assert_eq!(
         tokens.unwrap().tokens,
         vec![
-            Token::new(TokenType::Number, "3.14159", 1, Literal::Number(3.14159)),
+            Token::new(TokenType::Number, &pi, 1, Literal::Number(consts::PI)),
             Token::new(TokenType::Eof, "", 1, Literal::None),
         ]
     )

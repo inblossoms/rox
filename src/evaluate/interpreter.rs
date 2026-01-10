@@ -4,6 +4,7 @@ use crate::evaluate::{environment::Environment, error::RuntimeError, value::Valu
 use crate::tokenizer::Token;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+#[allow(clippy::empty_line_after_doc_comments)]
 /**
  * Thinking
  *
@@ -65,7 +66,7 @@ impl Interpreter {
     /// 3. 将当前环境 (`environment`) 和全局环境 (`globals`) 都指向这个新环境。
     pub fn new() -> Self {
         // 1. 创建根环境 (Global Scope)
-        let globals = Rc::new(RefCell::new(Environment::new()));
+        let globals = Rc::new(RefCell::new(Environment::default()));
 
         // TODO: 在这里注册原生函数，例如:
         // globals.borrow_mut().define("clock".to_string(), Value::NativeFn(...));
@@ -177,10 +178,10 @@ impl Interpreter {
                 let result = (|| -> Result<(), RuntimeError> {
                     loop {
                         // Check condition
-                        if let Some(cond) = condition {
-                            if !self.evaluate(cond)?.is_truthy() {
-                                break;
-                            }
+                        if let Some(cond) = condition
+                            && !self.evaluate(cond)?.is_truthy()
+                        {
+                            break;
                         }
 
                         // Run body
@@ -385,10 +386,8 @@ impl Interpreter {
                     if left_val.is_truthy() {
                         return Ok(left_val);
                     }
-                } else {
-                    if !left_val.is_truthy() {
-                        return Ok(left_val);
-                    }
+                } else if !left_val.is_truthy() {
+                    return Ok(left_val);
                 }
                 self.evaluate(right)
             }
@@ -899,5 +898,11 @@ impl Interpreter {
     #[cfg(test)]
     pub fn get_global_value(&self, name: &str) -> Option<Value> {
         self.globals.borrow().get(name)
+    }
+}
+
+impl Default for Interpreter {
+    fn default() -> Self {
+        Self::new()
     }
 }

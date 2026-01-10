@@ -91,10 +91,9 @@ impl<'a> Resolver<'a> {
                     if let Expr::Variable {
                         name: super_name, ..
                     } = super_expr
+                        && name.lexeme == super_name.lexeme
                     {
-                        if name.lexeme == super_name.lexeme {
-                            return Err("A class can't inherit from itself.".to_string());
-                        }
+                        return Err("A class can't inherit from itself.".to_string());
                     }
 
                     self.resolve_expr(super_expr)?;

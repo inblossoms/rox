@@ -160,3 +160,9 @@ impl Environment {
             .assign_at(distance - 1, name, value);
     }
 }
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new()
+    }
+}

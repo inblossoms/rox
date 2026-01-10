@@ -218,45 +218,35 @@ impl ParseHelper {
                     let id = self.generate_id();
                     // 使用保存的 operator_token 进行匹配
                     match operator_token.token_type {
-                        TokenType::Equal => {
-                            return Ok(Expr::Assign {
-                                id,
-                                name,
-                                expr: Box::new(value),
-                            });
-                        }
-                        TokenType::PlusEqual => {
-                            return Ok(Expr::AssignOp {
-                                id,
-                                name,
-                                op: Operator::Add,
-                                expr: Box::new(value),
-                            });
-                        }
-                        TokenType::MinusEqual => {
-                            return Ok(Expr::AssignOp {
-                                id,
-                                name,
-                                op: Operator::Sub,
-                                expr: Box::new(value),
-                            });
-                        }
-                        TokenType::StarEqual => {
-                            return Ok(Expr::AssignOp {
-                                id,
-                                name,
-                                op: Operator::Mul,
-                                expr: Box::new(value),
-                            });
-                        }
-                        TokenType::SlashEqual => {
-                            return Ok(Expr::AssignOp {
-                                id,
-                                name,
-                                op: Operator::Div,
-                                expr: Box::new(value),
-                            });
-                        }
+                        TokenType::Equal => Ok(Expr::Assign {
+                            id,
+                            name,
+                            expr: Box::new(value),
+                        }),
+                        TokenType::PlusEqual => Ok(Expr::AssignOp {
+                            id,
+                            name,
+                            op: Operator::Add,
+                            expr: Box::new(value),
+                        }),
+                        TokenType::MinusEqual => Ok(Expr::AssignOp {
+                            id,
+                            name,
+                            op: Operator::Sub,
+                            expr: Box::new(value),
+                        }),
+                        TokenType::StarEqual => Ok(Expr::AssignOp {
+                            id,
+                            name,
+                            op: Operator::Mul,
+                            expr: Box::new(value),
+                        }),
+                        TokenType::SlashEqual => Ok(Expr::AssignOp {
+                            id,
+                            name,
+                            op: Operator::Div,
+                            expr: Box::new(value),
+                        }),
                         _ => unreachable!(),
                     }
                 }
@@ -265,30 +255,24 @@ impl ParseHelper {
                 // 如果左值是一个 Get 表达式 (a.b)，转换为 Set 表达式 (a.b = value)
                 Expr::Get { object, name } => {
                     match operator_token.token_type {
-                        TokenType::Equal => {
-                            return Ok(Expr::Set {
-                                object,
-                                name,
-                                value: Box::new(value),
-                            });
-                        }
+                        TokenType::Equal => Ok(Expr::Set {
+                            object,
+                            name,
+                            value: Box::new(value),
+                        }),
                         // TODO: 支持 a.b += 1，扩展 Expr::SetOp 或者类似的逻辑
                         // 暂时只处理 =
-                        _ => {
-                            return Err(self.error(
-                                &operator_token,
-                                "Compound assignment not supported on properties yet.",
-                            ));
-                        }
+                        _ => Err(self.error(
+                            &operator_token,
+                            "Compound assignment not supported on properties yet.",
+                        )),
                     }
                 }
                 // 报错时使用 operator_token 定位，指向操作符位置更准确
                 // 对象属性赋值 (Set)
                 // 如果左值是一个 Get 表达式 (例如 a.b)，将其转换为 Set 表达式 (a.b = value)
                 // 报错时使用 operator_token 定位，指向操作符位置更准确
-                _ => {
-                    return Err(self.error(&operator_token, "Invalid assignment target."));
-                }
+                _ => Err(self.error(&operator_token, "Invalid assignment target.")),
             }
         } else {
             Ok(expr)
@@ -333,7 +317,7 @@ impl ParseHelper {
     /// 语句解析入口
     /// 支持的语句类型：
     /// - if 语句
-    /// - while 语句  
+    /// - while 语句
     /// - var 变量声明
     /// - fun 函数声明
     /// - 代码块 { ... }

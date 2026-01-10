@@ -15,7 +15,7 @@ pub fn eval_res(source: &str) -> Result<Value, String> {
     let tokens = tokenize(source_obj).map_err(|e| format!("{:?}", e))?;
     let ast = parse(tokens).map_err(|e| format!("{:?}", e))?;
 
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::default();
     let mut resolver = Resolver::new(&mut interpreter);
     resolver
         .resolve_stmts(&ast.body)

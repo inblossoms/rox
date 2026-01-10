@@ -1,5 +1,5 @@
 pub mod error;
-pub mod reader;
+pub mod reade;
 
 pub use error::Error;
-pub use reader::*;
+pub use reade::*;

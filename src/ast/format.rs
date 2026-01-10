@@ -108,11 +108,7 @@ pub fn format_stmt(stmt: &Stmt) -> String {
         Stmt::Function { name, params, body } => {
             let params_str: Vec<String> = params.iter().map(|t| t.lexeme.clone()).collect();
 
-            let body_str = body
-                .iter()
-                .map(|s| format_stmt(s))
-                .collect::<Vec<_>>()
-                .join("\n");
+            let body_str = body.iter().map(format_stmt).collect::<Vec<_>>().join("\n");
             format!(
                 "fun {}({}) {{ {} }}",
                 name.lexeme,
@@ -136,7 +132,7 @@ pub fn format_stmt(stmt: &Stmt) -> String {
                 super_class,
                 methods
                     .iter()
-                    .map(|m| format_stmt(m))
+                    .map(format_stmt)
                     .collect::<Vec<_>>()
                     .join("\n")
             )
@@ -176,11 +172,11 @@ pub fn format_stmt(stmt: &Stmt) -> String {
             };
             let cond_str = condition
                 .as_ref()
-                .map(|c| format_expr(c))
+                .map(format_expr)
                 .unwrap_or("".to_string());
             let incr_str = increment
                 .as_ref()
-                .map(|i| format_expr(i))
+                .map(format_expr)
                 .unwrap_or("".to_string());
 
             format!(

@@ -1,5 +1,5 @@
 // pub mod helper;
+pub mod core;
 pub mod resolve;
-pub mod resolver;
 
-pub use resolver::*;
+pub use core::*;
