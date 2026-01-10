@@ -1,6 +1,6 @@
 # Rox - A Robust Interpreter in Rust
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+[![CI](https://github.com/inblossoms/rox/actions/workflows/ci.yml/badge.svg)](https://github.com/inblossoms/rox/actions/workflows/ci.yml)
 ![Language](https://img.shields.io/badge/language-Rust-orange)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
