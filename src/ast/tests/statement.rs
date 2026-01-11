@@ -3,6 +3,7 @@ use crate::ast::{
     format::format_stmt,
     tests::{token, token_return},
 };
+use pretty_assertions::assert_eq;
 
 #[test]
 fn test_var_declaration() {

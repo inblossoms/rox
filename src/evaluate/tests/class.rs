@@ -1,10 +1,11 @@
 use crate::evaluate::{Value, tests::eval_res};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn test_class_instantiation() {
     let code = r#"
         class Bagel {}
-        var res = Bagel(); 
+        var res = Bagel();
     "#;
 
     let ret = "<instance Bagel>";
@@ -39,12 +40,12 @@ fn test_class_properties() {
     let code = r#"
         class Toast {}
         var toast = Toast();
-        
+
         // 1. Set property
         toast.jam = "grape";
-        
+
         // 2. Get property and check result
-        var res = toast.jam; 
+        var res = toast.jam;
     "#;
 
     assert_eq!(eval_res(code).unwrap(), Value::String("grape".to_string()));
@@ -90,7 +91,7 @@ fn test_class_method_access_fields() {
 
         var cake = Cake();
         cake.flavor = "German chocolate";
-        var res = cake.taste(); 
+        var res = cake.taste();
     "#;
 
     assert_eq!(

@@ -1,7 +1,5 @@
-use crate::ast::format::format_stmt;
-use crate::parser::parse;
-use crate::reader::Source;
-use crate::tokenizer::tokenize;
+use crate::{ast::format::format_stmt, parser::parse, reader::Source, tokenizer::tokenize};
+use pretty_assertions::assert_eq;
 
 /// 解析源码并返回格式化后的 AST 字符串列表
 /// 只需比较字符串，不需手动构造复杂的 AST 结构体

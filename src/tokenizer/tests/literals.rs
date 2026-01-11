@@ -1,4 +1,5 @@
 use crate::tokenizer::{Literal, Token, TokenType, scanner::Scanner};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn literals() {

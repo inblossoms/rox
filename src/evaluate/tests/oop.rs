@@ -1,17 +1,18 @@
 use crate::evaluate::{Value, tests::eval_res};
+use pretty_assertions::assert_eq;
 
 /// define、initializer、fields Get/Set
 #[test]
 fn test_class_fields() {
     let code = r#"
         class Point {}
-        
+
         var p = Point();
         p.x = 10;
         p.y = 20;
-        
+
         // 测试字段读取和简单的算术
-        var res = p.x + p.y; 
+        var res = p.x + p.y;
     "#;
 
     assert_eq!(eval_res(code).unwrap(), Value::Number(30.0));
@@ -29,7 +30,7 @@ fn test_method_this() {
 
         var jane = Person();
         jane.name = "Jane";
-        
+
         var res = jane.sayName("Bob");
     "#;
 
@@ -54,12 +55,12 @@ fn test_method_closure_binding() {
 
         var box = Box();
         box.setValue("Gold");
-        
+
         // 把方法取出来赋值给变量
         var getMethod = box.getValue;
-        
+
         // 在外部调用，this 应该依然指向 box，而不是 nil 或 global
-        var res = getMethod(); 
+        var res = getMethod();
     "#;
 
     assert_eq!(eval_res(code).unwrap(), Value::String("Gold".to_string()));
@@ -81,7 +82,7 @@ fn test_inheritance_override() {
 
         var dog = Dog();
         var cat = Cat();
-        
+
         var res = dog.speak() + " and " + cat.speak();
     "#;
 
@@ -161,13 +162,13 @@ fn test_oop_grand_finale() {
 
         var b = B();
         var c = C();
-        
+
         // 1. 调用 B 的 test -> super.method -> A.method -> "A"
-        var res1 = b.test(); 
-        
+        var res1 = b.test();
+
         // 2. 调用 C 的 method -> 继承自 B -> "B"
         var res2 = c.method();
-        
+
         var res = res1 + res2;
     "#;
 

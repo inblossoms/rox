@@ -1,4 +1,5 @@
 use crate::evaluate::{Value, tests::eval_res};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn test_function_call() {
@@ -35,7 +36,6 @@ fn test_closure() {
             }
             return count;
         }
-        
         var counter = makeCounter();
         counter(); // 1
         var res = counter(); // 2
@@ -53,7 +53,6 @@ fn test_resolver_shadowing() {
             fun showA() {
                 return a;
             }
-            
             var a = "block";
             res = showA(); // 应该返回 "global"，如果返回 "block" 说明 Resolver 没工作
         }

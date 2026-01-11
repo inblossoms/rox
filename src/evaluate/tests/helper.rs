@@ -5,6 +5,7 @@ use crate::{
     resolver::Resolver,
     tokenizer::tokenize,
 };
+use pretty_assertions::assert_eq;
 
 /// 编译并运行源代码，返回最后一个表达式语句的值，或者最后的状态
 pub fn eval_res(source: &str) -> Result<Value, String> {

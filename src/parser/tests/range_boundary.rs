@@ -1,4 +1,5 @@
 use crate::parser::tests::{assert_parse, parse_to_string};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn test_empty_program() {

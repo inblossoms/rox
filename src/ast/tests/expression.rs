@@ -1,4 +1,5 @@
 use crate::ast::{Expr, Operator, format::format_expr, tests::token};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn test_literals() {
