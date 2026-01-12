@@ -16,6 +16,7 @@ pub mod evaluate;
 pub mod parser;
 pub mod reader;
 pub mod resolver;
+pub mod std_lib;
 pub mod tokenizer;
 
 fn main() -> Result<(), RoxError> {

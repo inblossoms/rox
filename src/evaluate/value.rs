@@ -1,4 +1,7 @@
-use crate::{ast::Stmt, evaluate::environment::Environment};
+use crate::{
+    ast::Stmt,
+    evaluate::{Interpreter, environment::Environment, error::RuntimeError},
+};
 use std::{cell::RefCell, collections::HashMap, fmt, rc::Rc};
 
 // 类 (Class) 运行时结构
@@ -56,6 +59,11 @@ impl RoxInstance {
     }
 }
 
+/// 生函数类型别名
+/// 接收解释器引用(为了访问环境或报错)和参数列表
+pub type NativeFn = fn(&mut Interpreter, Vec<Value>) -> Result<Value, RuntimeError>;
+
+#[allow(unpredictable_function_pointer_comparisons)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
@@ -73,10 +81,24 @@ pub enum Value {
     Class(Rc<RefCell<RoxClass>>),
     Instance(Rc<RefCell<RoxInstance>>),
 
-    List(Vec<Value>),
+    List(Rc<RefCell<Vec<Value>>>),
     Tuple(Vec<Value>),
-    Dict(HashMap<String, Value>),
+    Dict(Rc<RefCell<HashMap<String, Value>>>),
     Print(String),
+
+    // 原生方法
+    NativeFunction {
+        name: String, // 函数的名 用于错误显示
+        arity: usize, // 函数的参数个数
+        func: NativeFn,
+    },
+
+    // 用于原生方法绑定 (类似于 obj.method)
+    // 当在 List/String 上调用 Get 时，生成这个值。
+    BoundNativeMethod {
+        receiver: Box<Value>, // 'this' 对象 (eg. 那个 List 实例) this 指向的数据
+        method: Box<Value>,   // NativeFunction 本身，要执行的函数
+    },
 }
 
 impl fmt::Display for Value {
@@ -91,10 +113,13 @@ impl fmt::Display for Value {
             Value::Instance(instance) => {
                 write!(f, "<instance {}>", instance.borrow().class.borrow().name)
             }
+            Value::NativeFunction { name, .. } => write!(f, "<native fn {}>", name),
+            Value::BoundNativeMethod { method, .. } => write!(f, "{}", method), // 委托给内部的 NativeFunction 打印
             Value::List(list) => write!(
                 f,
                 "[{}]",
-                list.iter()
+                list.borrow()
+                    .iter()
                     .map(|v| v.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
@@ -111,7 +136,8 @@ impl fmt::Display for Value {
             Value::Dict(dict) => write!(
                 f,
                 "{{{}}}",
-                dict.iter()
+                dict.borrow()
+                    .iter()
                     .map(|(k, v)| format!("{}: {}", k, v))
                     .collect::<Vec<_>>()
                     .join(", ")
@@ -153,6 +179,8 @@ impl Value {
             Value::Dict(_) => "Dict",
             Value::Tuple(_) => "Tuple",
             Value::Print(_) => "Print",
+            Value::NativeFunction { .. } => "NativeFunction",
+            Value::BoundNativeMethod { .. } => "BoundNativeMethod",
         }
     }
 

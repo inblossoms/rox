@@ -1,6 +1,7 @@
 use crate::ast::{AST, Expr, ExprId, Operator, Stmt};
 use crate::evaluate::value::{RoxClass, RoxInstance};
 use crate::evaluate::{environment::Environment, error::RuntimeError, value::Value};
+use crate::std_lib::native_method_lookup;
 use crate::tokenizer::Token;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -316,7 +317,10 @@ impl Interpreter {
             Expr::Boolean { value } => Ok(Value::Boolean(*value)),
             Expr::Nil => Ok(Value::Nil),
 
-            Expr::List { elements } => Ok(Value::List(self.evaluate_elements(elements)?)),
+            Expr::List { elements } => {
+                let elements = self.evaluate_elements(elements)?;
+                Ok(Value::List(Rc::new(RefCell::new(elements))))
+            }
             Expr::Tuple { elements } => Ok(Value::Tuple(self.evaluate_elements(elements)?)),
             Expr::Dict { elements } => {
                 let mut dict = HashMap::new();
@@ -325,7 +329,7 @@ impl Interpreter {
                     let val = self.evaluate(v)?;
                     dict.insert(key, val);
                 }
-                Ok(Value::Dict(dict))
+                Ok(Value::Dict(Rc::new(RefCell::new(dict))))
             }
 
             Expr::Variable { id, name } => self.look_up_variable(name, id),
@@ -563,6 +567,36 @@ impl Interpreter {
                         Ok(Value::Instance(instance))
                     }
 
+                    // === 处理绑定了的原生方法 ===
+                    // eg: list.push(1)
+                    // receiver = list ins
+                    // method = push
+                    // arg_vals = [1]
+                    Value::BoundNativeMethod { receiver, method } => {
+                        if let Value::NativeFunction { arity, func, .. } = *method {
+                            // 检查参数数量
+                            if arg_vals.len() != arity {
+                                return Err(RuntimeError::Generic(format!(
+                                    "Expected {} arguments but got {}.",
+                                    arity,
+                                    arg_vals.len()
+                                )));
+                            }
+
+                            // core：构造参数列表 [this, args...]
+                            // 将 receiver (this) 插入到第一个位置
+                            let mut full_args = Vec::with_capacity(arg_vals.len() + 1);
+                            full_args.push(*receiver); // receiver 是 Box<Value>，解引用拿到 Value
+                            full_args.extend(arg_vals);
+
+                            // 调用 Rust 原生函数
+                            // func 类型是 fn(&mut Interpreter, Vec<Value>) -> ...
+                            let result = func(self, full_args)?;
+                            Ok(result)
+                        } else {
+                            panic!("BoundNativeMethod must wrap a NativeFunction");
+                        }
+                    }
                     _ => Err(RuntimeError::TypeError("Can only call functions".into())),
                 }
             }
@@ -572,28 +606,69 @@ impl Interpreter {
             Expr::Get { object, name } => {
                 let obj = self.evaluate(object)?;
 
-                // 检查是否是实例
-                if let Value::Instance(instance_rc) = obj {
-                    let instance = instance_rc.borrow();
+                match obj {
+                    // 实例属性/方法，检查是否是实例
+                    Value::Instance(instance_rc) => {
+                        let instance = instance_rc.borrow();
 
-                    if let Some(value) = instance.fields.borrow().get(&name.lexeme) {
-                        return Ok(value.clone());
+                        if let Some(value) = instance.fields.borrow().get(&name.lexeme) {
+                            return Ok(value.clone());
+                        }
+
+                        if let Some(method) = instance.class.borrow().find_method(&name.lexeme) {
+                            let bound_method = method.bind(Value::Instance(instance_rc.clone()));
+                            return Ok(bound_method);
+                        }
+
+                        Err(RuntimeError::Generic(format!(
+                            "Undefined property '{}'.",
+                            name.lexeme
+                        )))
                     }
 
-                    if let Some(method) = instance.class.borrow().find_method(&name.lexeme) {
-                        let bound_method = method.bind(Value::Instance(instance_rc.clone()));
-                        return Ok(bound_method);
+                    // std
+                    Value::String(_) => {
+                        // 使用 std_lib 查找
+                        if let Some(method) =
+                            native_method_lookup::lookup_string_method(&name.lexeme)
+                        {
+                            // Thinking：
+                            // 原生函数也需要知道 'this' 是谁，
+                            // 复用 bind 逻辑，或者在 NativeFunction 调用时特殊处理。
+                            // 简单做法：让 NativeFunction 类似于 Value::Function，把 'obj' 塞进去。
+                            // 但由于 NativeFunction 是 Rust fn，没办法塞闭包环境。
+
+                            // 返回 Value::BoundNativeMethod { method, this: obj }
+                            // 在 Expr::Call 中处理它。
+                            return Ok(Value::BoundNativeMethod {
+                                method: Box::new(method),
+                                receiver: Box::new(obj),
+                            });
+                        }
+                        Err(RuntimeError::Generic(format!(
+                            "String has no property '{}'.",
+                            name.lexeme
+                        )))
                     }
 
-                    return Err(RuntimeError::Generic(format!(
-                        "Undefined property '{}'.",
-                        name.lexeme
-                    )));
+                    Value::List(_) => {
+                        if let Some(method) = native_method_lookup::lookup_list_method(&name.lexeme)
+                        {
+                            return Ok(Value::BoundNativeMethod {
+                                method: Box::new(method),
+                                receiver: Box::new(obj),
+                            });
+                        }
+                        Err(RuntimeError::Generic(format!(
+                            "List has no property '{}'.",
+                            name.lexeme
+                        )))
+                    }
+
+                    _ => Err(RuntimeError::TypeError(
+                        "Only instances have properties.".into(),
+                    )),
                 }
-
-                Err(RuntimeError::TypeError(
-                    "Only instances have properties.".into(),
-                ))
             }
 
             Expr::Set {
@@ -826,16 +901,18 @@ impl Interpreter {
             }
 
             //  列表、元组、字典
-            (Value::List(mut list1), Value::List(list2)) => {
-                list1.extend(list2);
+            (Value::List(list1), Value::List(list2)) => {
+                list1.borrow_mut().extend(list2.borrow().iter().cloned());
                 Ok(Value::List(list1))
             }
             (Value::Tuple(mut tuple1), Value::Tuple(tuple2)) => {
                 tuple1.extend(tuple2);
                 Ok(Value::Tuple(tuple1))
             }
-            (Value::Dict(mut dict1), Value::Dict(dict2)) => {
-                dict1.extend(dict2);
+            (Value::Dict(dict1), Value::Dict(dict2)) => {
+                dict1
+                    .borrow_mut()
+                    .extend(dict2.borrow().iter().map(|(k, v)| (k.clone(), v.clone())));
                 Ok(Value::Dict(dict1))
             }
 

@@ -7,4 +7,7 @@ pub use interpreter::Interpreter;
 pub use value::Value;
 
 #[cfg(test)]
-mod tests;
+pub mod tests;
+
+#[cfg(test)]
+pub use tests::eval_res;
