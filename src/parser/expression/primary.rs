@@ -158,6 +158,12 @@ impl ParseHelper {
                 expr: Box::new(expr),
             });
         }
+        if self.match_token(&[TokenType::LeftBrace]) {
+            return self.parse_dict();
+        }
+        if self.match_token(&[TokenType::LeftBracket]) {
+            return self.parse_list();
+        }
 
         // 错误情况
         let current_token = self.peek();
