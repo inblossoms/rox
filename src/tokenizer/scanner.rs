@@ -113,6 +113,8 @@ impl Scanner {
             ')' => self.add_token(TokenType::RightParen),
             '{' => self.add_token(TokenType::LeftBrace),
             '}' => self.add_token(TokenType::RightBrace),
+            '[' => self.add_token(TokenType::LeftBracket),
+            ']' => self.add_token(TokenType::RightBracket),
             ',' => self.add_token(TokenType::Comma),
             '.' => self.add_token(TokenType::Dot),
             '-' => {
@@ -131,6 +133,7 @@ impl Scanner {
                 };
                 self.add_token(token_type)
             }
+            ':' => self.add_token(TokenType::Colon),
             ';' => self.add_token(TokenType::Semicolon),
             '*' => {
                 let token_type = if self.match_char('=') {
