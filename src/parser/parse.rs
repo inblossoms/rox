@@ -365,10 +365,61 @@ impl ParseHelper {
         if self.match_token(&[TokenType::Print]) {
             return self.parse_print_statement();
         }
-        // TODO: 添加 Class、super、this 逻辑实现
 
         // 解析表达式语句（以分号结尾的表达式）
         self.parse_expression_statement()
+    }
+
+    /// 语法: "[" ( expression ( "," expression )* )? "]"
+    pub fn parse_list(&mut self) -> Result<Expr, Error> {
+        let mut elements = Vec::new();
+
+        // 如果不是空列表
+        if !self.check(TokenType::LeftBracket) {
+            loop {
+                // 解析元素
+                elements.push(self.parse_expression()?);
+
+                // 如果没有逗号，停止循环
+                if !self.match_token(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(TokenType::RightBracket, "Expect ']' after list elements.")?;
+
+        Ok(Expr::List { elements })
+    }
+
+    /// 语法: "{" ( key ":" value ( "," key ":" value )* )? "}"
+    pub fn parse_dict(&mut self) -> Result<Expr, Error> {
+        let mut elements = Vec::new();
+
+        // 如果不是空字典
+        if !self.check(TokenType::LeftBrace) {
+            loop {
+                let key = self.parse_expression()?;
+
+                self.consume(TokenType::Colon, "Expect ':' after dictionary key.")?;
+
+                let value = self.parse_expression()?;
+
+                elements.push((key, value));
+
+                // 如果没有逗号，停止循环
+                if !self.match_token(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        self.consume(
+            TokenType::RightBrace,
+            "Expect '}' after dictionary elements.",
+        )?;
+
+        Ok(Expr::Dict { elements })
     }
 
     /// 解析表达式语句 (Expression Statement)
