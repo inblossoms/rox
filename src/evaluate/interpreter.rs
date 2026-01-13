@@ -1,7 +1,7 @@
 use crate::ast::{AST, Expr, ExprId, Operator, Stmt};
 use crate::evaluate::value::{RoxClass, RoxInstance};
 use crate::evaluate::{environment::Environment, error::RuntimeError, value::Value};
-use crate::std_lib::native_method_lookup;
+use crate::std_lib::lookup_method;
 use crate::tokenizer::Token;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -460,6 +460,8 @@ impl Interpreter {
                 let callee_value = self.evaluate(callee)?;
                 //  let callee_value = self.look_up_variable(name_token, id)?;
 
+                //  println!("DEBUG: Calling {:?}", callee_value);
+
                 let mut arg_vals = Vec::new();
                 for arg in args {
                     arg_vals.push(self.evaluate(arg)?);
@@ -629,9 +631,7 @@ impl Interpreter {
                     // std
                     Value::String(_) => {
                         // 使用 std_lib 查找
-                        if let Some(method) =
-                            native_method_lookup::lookup_string_method(&name.lexeme)
-                        {
+                        if let Some(method) = lookup_method(&obj, &name.lexeme) {
                             // Thinking：
                             // 原生函数也需要知道 'this' 是谁，
                             // 复用 bind 逻辑，或者在 NativeFunction 调用时特殊处理。
@@ -652,8 +652,7 @@ impl Interpreter {
                     }
 
                     Value::List(_) => {
-                        if let Some(method) = native_method_lookup::lookup_list_method(&name.lexeme)
-                        {
+                        if let Some(method) = lookup_method(&obj, &name.lexeme) {
                             return Ok(Value::BoundNativeMethod {
                                 method: Box::new(method),
                                 receiver: Box::new(obj),
@@ -664,7 +663,6 @@ impl Interpreter {
                             name.lexeme
                         )))
                     }
-
                     _ => Err(RuntimeError::TypeError(
                         "Only instances have properties.".into(),
                     )),
