@@ -1,15 +1,14 @@
 pub mod methods;
+use crate::native_fn;
 
 pub fn lookup(name: &str) -> Option<super::Value> {
-    let func: super::value::NativeFn = match name {
-        "push" => methods::push,
-        "pop" => methods::pop,
-        _ => return None,
-    };
-
-    Some(super::Value::NativeFunction {
-        name: name.to_string(),
-        arity: 1, // 列表方法只接受一个参数
-        func,
-    })
+    match name {
+        "push" => native_fn!("push", 1, methods::push),
+        "pop" => native_fn!("pop", 0, methods::pop),
+        "len" => native_fn!("len", 0, methods::len),
+        "insert" => native_fn!("insert", 2, methods::insert),
+        "join" => native_fn!("join", 1, methods::join),
+        "reverse" => native_fn!("reverse", 0, methods::reverse),
+        _ => None,
+    }
 }
