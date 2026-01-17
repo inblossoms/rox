@@ -70,6 +70,7 @@ pub enum Value {
     String(String),
     Boolean(bool),
     Nil,
+    None,
 
     Function {
         name: String,
@@ -107,6 +108,7 @@ impl fmt::Display for Value {
             Value::Number(n) => write!(f, "{}", n),
             Value::String(s) => write!(f, "{}", s),
             Value::Boolean(b) => write!(f, "{}", b),
+            Value::None => write!(f, "none"),
             Value::Nil => write!(f, "nil"),
             Value::Function { name, .. } => write!(f, "<fn {}>", name),
             Value::Class(class) => write!(f, "<class {}>", class.borrow().name),
@@ -171,6 +173,7 @@ impl Value {
             Value::Number(_) => "Number",
             Value::String(_) => "String",
             Value::Boolean(_) => "Boolean",
+            Value::None => "None",
             Value::Nil => "Nil",
             Value::Function { .. } => "Function",
             Value::Class(_) => "Class",
