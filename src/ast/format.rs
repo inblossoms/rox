@@ -77,6 +77,22 @@ pub fn format_expr(expr: &Expr) -> String {
         Expr::Get { object, name, .. } => {
             format!("{}.{}", format_expr(object), name.lexeme)
         }
+        Expr::GetIndex { object, index, .. } => {
+            format!("{}[{}]", format_expr(object), format_expr(index))
+        }
+        Expr::SetIndex {
+            object,
+            index,
+            value,
+            ..
+        } => {
+            format!(
+                "{}[{}] = {}",
+                format_expr(object),
+                format_expr(index),
+                format_expr(value)
+            )
+        }
         Expr::Set {
             object,
             name,

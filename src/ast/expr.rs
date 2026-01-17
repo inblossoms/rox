@@ -109,6 +109,21 @@ pub enum Expr {
         keyword: Token,
         method: Token,
     },
+
+    GetIndex {
+        id: ExprId, // 用于 Resolver (index 通常是动态的，但保留 id 以保持一致性)
+        object: Box<Expr>,
+        bracket: Token,   // '[' token，用于报错定位
+        index: Box<Expr>, // 下标表达式 (0, "key", i+1)
+    },
+
+    SetIndex {
+        id: ExprId,
+        object: Box<Expr>,
+        bracket: Token,
+        index: Box<Expr>,
+        value: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -252,6 +267,25 @@ impl Expr {
             id: ExprId(0),
             keyword,
             method,
+        }
+    }
+
+    pub fn get_index(object: Expr, index: Expr) -> Expr {
+        Expr::GetIndex {
+            id: ExprId(0),
+            object: Box::new(object),
+            bracket: generate_token(TokenType::LeftBracket, "["),
+            index: Box::new(index),
+        }
+    }
+
+    pub fn set_index(object: Expr, index: Expr, value: Expr) -> Expr {
+        Expr::SetIndex {
+            id: ExprId(0),
+            object: Box::new(object),
+            bracket: generate_token(TokenType::LeftBracket, "["),
+            index: Box::new(index),
+            value: Box::new(value),
         }
     }
 

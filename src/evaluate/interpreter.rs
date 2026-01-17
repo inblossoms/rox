@@ -704,12 +704,130 @@ impl Interpreter {
                             name.lexeme
                         )))
                     }
+
+                    Value::Dict(_) => {
+                        if let Some(method) = lookup_method(&obj, &name.lexeme) {
+                            return Ok(Value::BoundNativeMethod {
+                                method: Box::new(method),
+                                receiver: Box::new(obj),
+                            });
+                        }
+
+                        // TODO: dict.key
+
+                        Err(RuntimeError::Generic(format!(
+                            "Dict has no property '{}'.",
+                            name.lexeme
+                        )))
+                    }
                     _ => Err(RuntimeError::TypeError(
                         "Only instances have properties.".into(),
                     )),
                 }
             }
 
+            Expr::GetIndex { object, index, .. } => {
+                let obj = self.evaluate(object)?;
+                let idx = self.evaluate(index)?;
+
+                match obj {
+                    // list[idx]
+                    Value::List(list_rc) => {
+                        if let Value::Number(n) = idx {
+                            // 检查是不是整数
+                            if n.fract() != 0.0 {
+                                return Err(RuntimeError::Generic(
+                                    "List index must be an integer.".into(),
+                                ));
+                            }
+                            let i = n as usize;
+                            let list = list_rc.borrow();
+
+                            if i >= list.len() {
+                                return Err(RuntimeError::Generic(
+                                    "List index out of bounds.".into(),
+                                ));
+                            }
+                            return Ok(list[i].clone());
+                        }
+                        Err(RuntimeError::Generic("List index must be a number.".into()))
+                    }
+
+                    // dict[key]
+                    Value::Dict(dict_rc) => {
+                        // NOTE：HashMap Key 必须可哈希，当前只支持 String 类型 Key
+                        let key = idx.to_string();
+                        let dict = dict_rc.borrow();
+
+                        Ok(dict.get(&key).cloned().unwrap_or(Value::Nil)) // 不存在返回 Nil
+                    }
+
+                    // str[idx]
+                    Value::String(s) => {
+                        if let Value::Number(n) = idx {
+                            let i = n as usize;
+                            if i >= s.len() {
+                                return Err(RuntimeError::Generic(
+                                    "String index out of bounds.".into(),
+                                ));
+                            }
+                            // NOTE：字符串索引比较麻烦（UTF-8），暂时简单处理
+                            let c = s.chars().nth(i).unwrap();
+                            Ok(Value::String(c.to_string()))
+                        } else {
+                            Err(RuntimeError::Generic(
+                                "String index must be a number.".into(),
+                            ))
+                        }
+                    }
+
+                    _ => Err(RuntimeError::TypeError(
+                        "Only lists and dicts support subscripting.".into(),
+                    )),
+                }
+            }
+
+            Expr::SetIndex {
+                object,
+                index,
+                value,
+                ..
+            } => {
+                let obj = self.evaluate(object)?;
+                let idx = self.evaluate(index)?;
+                let val = self.evaluate(value)?;
+
+                match obj {
+                    Value::List(list_rc) => {
+                        if let Value::Number(n) = idx {
+                            if n.fract() != 0.0 {
+                                return Err(RuntimeError::Generic("Index must be integer.".into()));
+                            }
+                            let i = n as usize;
+                            let mut list = list_rc.borrow_mut();
+
+                            if i >= list.len() {
+                                return Err(RuntimeError::Generic(
+                                    "List index out of bounds.".into(),
+                                ));
+                            }
+                            list[i] = val.clone();
+                            return Ok(val);
+                        }
+                        Err(RuntimeError::Generic("List index must be a number.".into()))
+                    }
+
+                    Value::Dict(dict_rc) => {
+                        let key = idx.to_string(); // !!
+                        dict_rc.borrow_mut().insert(key, val.clone());
+                        Ok(val)
+                    }
+
+                    _ => Err(RuntimeError::TypeError(
+                        "Only lists and dicts support subscript assignment.".into(),
+                    )),
+                }
+            }
             Expr::Set {
                 object,
                 name,

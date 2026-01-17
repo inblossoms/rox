@@ -268,6 +268,32 @@ impl ParseHelper {
                         )),
                     }
                 }
+                Expr::GetIndex {
+                    object,
+                    index,
+                    bracket,
+                    ..
+                } => {
+                    match operator_token.token_type {
+                        TokenType::Equal => {
+                            // 转换为 SetIndex
+                            Ok(Expr::SetIndex {
+                                id: self.generate_id(),
+                                object,
+                                index,
+                                bracket,
+                                value: Box::new(value),
+                            })
+                        }
+
+                        // TODO: 支持 arr[i] += 1
+                        _ => Err(self.error(
+                            &operator_token,
+                            "Compound assignment not supported on subscripts yet.",
+                        )),
+                    }
+                }
+
                 // 报错时使用 operator_token 定位，指向操作符位置更准确
                 // 对象属性赋值 (Set)
                 // 如果左值是一个 Get 表达式 (例如 a.b)，将其转换为 Set 表达式 (a.b = value)
@@ -350,6 +376,9 @@ impl ParseHelper {
             let statements = self.parse_block()?;
             return Ok(Stmt::Block { body: statements });
         }
+        //   if self.match_token(&[TokenType::LeftBracket]) {
+        // 		  todo!()
+        //   }
         if self.match_token(&[TokenType::Return]) {
             return self.parse_return_statement();
         }

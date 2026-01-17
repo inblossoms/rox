@@ -24,6 +24,17 @@ impl ParseHelper {
             if self.match_token(&[TokenType::LeftParen]) {
                 // 发现左括号，说明是函数调用，递归解析参数并包装 expr
                 expr = self.finish_call(expr)?;
+            } else if self.match_token(&[TokenType::LeftBracket]) {
+                let bracket = self.previous().clone(); // '['
+                let index = self.parse_expression()?; // 解析下标表达式
+                self.consume(TokenType::RightBracket, "Expect ']' after index.")?;
+
+                expr = Expr::GetIndex {
+                    id: self.generate_id(),
+                    object: Box::new(expr),
+                    bracket,
+                    index: Box::new(index),
+                };
             } else if self.match_token(&[TokenType::Dot]) {
                 // “.” 的优先级和函数调用 (func()) 一样高
                 let name = self

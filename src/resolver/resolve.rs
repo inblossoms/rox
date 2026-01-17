@@ -316,8 +316,23 @@ impl<'a> Resolver<'a> {
             }
             Expr::Number { .. } | Expr::String { .. } | Expr::Boolean { .. } | Expr::Nil => {}
             Expr::Get { object, name: _ } => {
-                // 只解析对象 (object)，属性名是动态的 不需要解析
+                // 只解析对象 (object)，属性名(Token) 是动态的 不需要解析
                 self.resolve_expr(object)?;
+            }
+            Expr::GetIndex { object, index, .. } => {
+                self.resolve_expr(object)?;
+                self.resolve_expr(index)?;
+            }
+
+            Expr::SetIndex {
+                object,
+                index,
+                value,
+                ..
+            } => {
+                self.resolve_expr(object)?;
+                self.resolve_expr(index)?;
+                self.resolve_expr(value)?;
             }
             Expr::Set {
                 object,
