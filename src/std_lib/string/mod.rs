@@ -1,17 +1,12 @@
 pub mod methods;
-use super::value::{NativeFn, Value};
-
+use super::value::Value;
+use crate::native_fn;
 pub fn lookup(name: &str) -> Option<Value> {
-    let func: NativeFn = match name {
-        "len" => methods::len,
-        //   "upper" => methods::upper,
-        // ...
-        _ => return None,
-    };
-
-    Some(Value::NativeFunction {
-        name: name.to_string(),
-        arity: 0, // Note：arity 指除 this 以外的参数个数
-        func,
-    })
+    match name {
+        "len" => native_fn!("len", 0, methods::len),
+        "split" => native_fn!("split", 1, methods::split),
+        "substring" => native_fn!("substring", 2, methods::substring),
+        "replace" => native_fn!("replace", 2, methods::replace),
+        _ => None,
+    }
 }
