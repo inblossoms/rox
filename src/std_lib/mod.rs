@@ -1,5 +1,5 @@
 // pub mod dict;
-// pub mod globals;
+pub mod globals;
 pub mod list;
 pub mod string;
 pub mod utils;

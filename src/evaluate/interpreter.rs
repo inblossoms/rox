@@ -1,7 +1,7 @@
 use crate::ast::{AST, Expr, ExprId, Operator, Stmt};
 use crate::evaluate::value::{RoxClass, RoxInstance};
 use crate::evaluate::{environment::Environment, error::RuntimeError, value::Value};
-use crate::std_lib::lookup_method;
+use crate::std_lib::{self, lookup_method};
 use crate::tokenizer::Token;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -66,11 +66,35 @@ impl Interpreter {
     /// 2. (可选) 在全局环境中注册原生函数 (Native Functions)。
     /// 3. 将当前环境 (`environment`) 和全局环境 (`globals`) 都指向这个新环境。
     pub fn new() -> Self {
-        // 1. 创建根环境 (Global Scope)
+        // 创建根环境 (Global Scope)
         let globals = Rc::new(RefCell::new(Environment::default()));
 
-        // TODO: 在这里注册原生函数，例如:
+        // TODO: 注册原生函数，例如:
         // globals.borrow_mut().define("clock".to_string(), Value::NativeFn(...));
+
+        {
+            let mut env = globals.borrow_mut();
+
+            // 定义 clock
+            env.define(
+                "clock".to_string(),
+                Value::NativeFunction {
+                    name: "clock".to_string(),
+                    arity: 0,
+                    func: std_lib::globals::clock,
+                },
+            );
+
+            // 定义 input
+            env.define(
+                "input".to_string(),
+                Value::NativeFunction {
+                    name: "input".to_string(),
+                    arity: 1, // 假设接受一个 prompt 参数
+                    func: std_lib::globals::input,
+                },
+            );
+        }
 
         Self {
             // 初始状态下，当前环境就是全局环境
@@ -80,7 +104,10 @@ impl Interpreter {
             locals: HashMap::new(),
         }
     }
-
+    // TODO：错误处理机制 (Try-Catch)
+    // 目前 Runtime Error 会直接杀掉进程。
+    // 实现 try { ... } catch (e) { ... }。
+    // 使用 catch_unwind 或者在 Result 路径上增加一种 Error::RuntimeCaught 状态，不让它直接冒泡到 main。
     /// 入口函数：解释执行 AST
     pub fn interpret(&mut self, ast: AST) -> Result<Value, RuntimeError> {
         // ast.body 是 Vec<Stmt>
@@ -569,11 +596,11 @@ impl Interpreter {
                         Ok(Value::Instance(instance))
                     }
 
-                    // === 处理绑定了的原生方法 ===
+                    // 处理绑定了的原生方法
                     // eg: list.push(1)
-                    // receiver = list ins
-                    // method = push
-                    // arg_vals = [1]
+                    //     receiver = list ins
+                    //     method = push
+                    //     arg_vals = [1]
                     Value::BoundNativeMethod { receiver, method } => {
                         if let Value::NativeFunction { arity, func, .. } = *method {
                             // 检查参数数量
@@ -599,6 +626,20 @@ impl Interpreter {
                             panic!("BoundNativeMethod must wrap a NativeFunction");
                         }
                     }
+
+                    // 全局原生函数 (clock, input..)
+                    Value::NativeFunction { arity, func, .. } => {
+                        if arg_vals.len() != arity {
+                            return Err(RuntimeError::Generic(format!(
+                                "Expected {} arguments but got {}.",
+                                arity,
+                                arg_vals.len()
+                            )));
+                        }
+                        // 不同于对象方法需要 this ，全局函数并不需要
+                        func(self, arg_vals)
+                    }
+
                     _ => Err(RuntimeError::TypeError("Can only call functions".into())),
                 }
             }
