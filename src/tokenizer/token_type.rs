@@ -60,6 +60,8 @@ pub enum TokenType {
     While,
     Continue,
     Break,
+    Try,
+    Catch,
 
     Eof,
 }

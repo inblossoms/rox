@@ -175,6 +175,51 @@ impl Interpreter {
                 }
                 Ok(())
             }
+
+            Stmt::Try {
+                try_branch,
+                catch_var,
+                catch_branch,
+            } => {
+                // 尝试执行 try 块
+                match self.execute(try_branch) {
+                    Ok(_) => Ok(()), // 正常完成，跳过 catch
+                    Err(e) => {
+                        // 检查错误类型
+                        // Break/Continue/Return 属于控制流，不应该被 catch 捕获
+                        // 这里只捕获 Generic/Type/Undefined 等运行时错误
+                        match e {
+                            RuntimeError::Break
+                            | RuntimeError::Continue
+                            | RuntimeError::Return(_) => {
+                                Err(e) // 继续向上抛出控制流
+                            }
+                            _ => {
+                                // 捕获到的错误
+                                let previous = self.environment.clone(); // 进入 catch 作用域
+                                let catch_env = Rc::new(RefCell::new(Environment::with_enclosing(
+                                    previous.clone(),
+                                )));
+
+                                // 将错误信息作为字符串绑定到变量
+                                // 注意：这里将 RuntimeError 转为 String Value
+                                let err_msg = Value::String(format!("{}", e));
+                                catch_env
+                                    .borrow_mut()
+                                    .define(catch_var.lexeme.clone(), err_msg);
+
+                                self.environment = catch_env;
+                                // 执行 catch 块
+                                let result = self.execute(catch_branch);
+                                self.environment = previous;
+
+                                result
+                            }
+                        }
+                    }
+                }
+            }
+
             Stmt::While { condition, body } => {
                 while self.evaluate(condition)?.is_truthy() {
                     match self.execute(body) {

@@ -156,6 +156,21 @@ impl<'a> Resolver<'a> {
                     self.resolve_stmt(else_branch)?;
                 }
             }
+            Stmt::Try {
+                try_branch,
+                catch_var,
+                catch_branch,
+            } => {
+                // try block
+                self.resolve_stmt(try_branch)?;
+
+                // catch block
+                self.begin_scope();
+                self.declare(catch_var)?;
+                self.define(catch_var);
+                self.resolve_stmt(catch_branch)?;
+                self.end_scope();
+            }
 
             // 解析循环体时需要更新 `current_loop` 状态，以便检查 break/continue。
             Stmt::While { condition, body } => {

@@ -46,6 +46,12 @@ pub enum Stmt {
         else_branch: Option<Box<Stmt>>,
     },
 
+    Try {
+        try_branch: Box<Stmt>,   // 通常是 Block
+        catch_var: Token,        // catch (e) 中的 e
+        catch_branch: Box<Stmt>, // Block
+    },
+
     While {
         condition: Expr,
         body: Box<Stmt>,

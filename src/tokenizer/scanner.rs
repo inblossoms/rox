@@ -307,6 +307,8 @@ impl Scanner {
             "continue" => TokenType::Continue,
             "break" => TokenType::Break,
             "." => TokenType::Dot,
+            "try" => TokenType::Try,
+            "catch" => TokenType::Catch,
             _ => TokenType::Identifier,
         };
 

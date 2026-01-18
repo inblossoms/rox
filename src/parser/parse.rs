@@ -356,6 +356,9 @@ impl ParseHelper {
         if self.match_token(&[TokenType::If]) {
             return self.parse_if_statement();
         }
+        if self.match_token(&[TokenType::Try]) {
+            return self.parse_try_statement();
+        }
         if self.match_token(&[TokenType::While]) {
             return self.parse_while_statement();
         }

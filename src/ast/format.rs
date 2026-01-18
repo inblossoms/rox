@@ -184,6 +184,18 @@ pub fn format_stmt(stmt: &Stmt) -> String {
             }
             result
         }
+        Stmt::Try {
+            try_branch,
+            catch_var,
+            catch_branch,
+        } => {
+            format!(
+                "try {} catch ({}) {}",
+                format_stmt(try_branch),
+                catch_var.lexeme,
+                format_stmt(catch_branch)
+            )
+        }
         Stmt::While { condition, body } => {
             format!("while ({}) {}", format_expr(condition), format_stmt(body))
         }
