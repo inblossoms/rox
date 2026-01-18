@@ -1,4 +1,4 @@
-// pub mod dict;
+pub mod dict;
 pub mod globals;
 pub mod list;
 pub mod string;
@@ -15,7 +15,7 @@ pub fn lookup_method(target: &Value, name: &str) -> Option<Value> {
     match target {
         Value::String(_) => string::lookup(name),
         Value::List(_) => list::lookup(name),
-        //   Value::Dict(_) => dict::lookup(name),
+        Value::Dict(_) => dict::lookup(name),
         _ => None,
     }
 }
