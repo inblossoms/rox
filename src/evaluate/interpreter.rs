@@ -652,13 +652,20 @@ impl Interpreter {
                 match &obj {
                     // 实例属性/方法，检查是否是实例
                     Value::Instance(instance_rc) => {
-                        let instance = instance_rc.borrow();
+                        {
+                            // 本地优先，查找实例字段
+                            let instance = instance_rc.borrow();
 
-                        if let Some(value) = instance.fields.borrow().get(&name.lexeme) {
-                            return Ok(value.clone());
+                            if let Some(value) = instance.fields.borrow().get(&name.lexeme) {
+                                return Ok(value.clone());
+                            }
                         }
 
-                        if let Some(method) = instance.class.borrow().find_method(&name.lexeme) {
+                        let klass_rc = instance_rc.borrow().class.clone();
+                        let klass = klass_rc.borrow();
+
+                        // 向类以及父类 链式查找
+                        if let Some(method) = klass.find_method(&name.lexeme) {
                             let bound_method = method.bind(Value::Instance(instance_rc.clone()));
                             return Ok(bound_method);
                         }
