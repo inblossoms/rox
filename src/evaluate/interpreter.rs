@@ -649,7 +649,7 @@ impl Interpreter {
             Expr::Get { object, name } => {
                 let obj = self.evaluate(object)?;
 
-                match obj {
+                match &obj {
                     // 实例属性/方法，检查是否是实例
                     Value::Instance(instance_rc) => {
                         let instance = instance_rc.borrow();
@@ -705,21 +705,29 @@ impl Interpreter {
                         )))
                     }
 
-                    Value::Dict(_) => {
+                    Value::Dict(dict) => {
+                        let this = Value::Dict(dict.clone());
+
+                        // 优先本地方法的调用
                         if let Some(method) = lookup_method(&obj, &name.lexeme) {
                             return Ok(Value::BoundNativeMethod {
                                 method: Box::new(method),
-                                receiver: Box::new(obj),
+                                receiver: Box::new(this),
                             });
                         }
 
-                        // TODO: dict.key
+                        // . 运算
+                        let dict_borrow = dict.borrow();
+                        if let Some(value) = dict_borrow.get(&name.lexeme) {
+                            return Ok(value.clone());
+                        }
 
                         Err(RuntimeError::Generic(format!(
                             "Dict has no property '{}'.",
                             name.lexeme
                         )))
                     }
+
                     _ => Err(RuntimeError::TypeError(
                         "Only instances have properties.".into(),
                     )),
