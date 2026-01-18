@@ -303,6 +303,15 @@ impl<'a> Resolver<'a> {
                 // 解析 "super" 变量
                 self.resolve_local(id, keyword);
             }
+            Expr::Lambda {
+                id: _,
+                params,
+                body,
+            } => {
+                // !! Lambda 也是函数
+                self.resolve_function(params, body, FunctionType::Function)?;
+            }
+
             Expr::List { elements } | Expr::Tuple { elements } => {
                 for e in elements {
                     self.resolve_expr(e)?;

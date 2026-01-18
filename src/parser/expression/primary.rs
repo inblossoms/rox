@@ -161,7 +161,9 @@ impl ParseHelper {
                 id: self.generate_id(),
             });
         }
-
+        if self.match_token(&[TokenType::Fun]) {
+            return self.parse_lambda();
+        }
         if self.match_token(&[TokenType::LeftParen]) {
             let expr = self.parse_expression()?;
             self.consume(TokenType::RightParen, "Expected ')' after expression.")?;

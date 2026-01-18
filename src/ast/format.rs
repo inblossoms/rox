@@ -108,6 +108,17 @@ pub fn format_expr(expr: &Expr) -> String {
         }
 
         Expr::This { .. } => "this".to_string(),
+
+        Expr::Lambda {
+            id: _,
+            params,
+            body,
+        } => {
+            let params_str: Vec<String> = params.iter().map(|t| t.lexeme.clone()).collect();
+            let body_str = body.iter().map(format_stmt).collect::<Vec<_>>().join(" ");
+
+            format!("fun ({}) {{{}}}", params_str.join(", "), body_str)
+        }
     }
 }
 

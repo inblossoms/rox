@@ -110,6 +110,12 @@ pub enum Expr {
         method: Token,
     },
 
+    Lambda {
+        id: ExprId, // 供 Resolver 解析闭包
+        params: Vec<Token>,
+        body: Vec<Stmt>,
+    },
+
     GetIndex {
         id: ExprId, // 用于 Resolver (index 通常是动态的，但保留 id 以保持一致性)
         object: Box<Expr>,
@@ -267,6 +273,14 @@ impl Expr {
             id: ExprId(0),
             keyword,
             method,
+        }
+    }
+
+    pub fn lambda(params: Vec<Token>, body: Vec<Stmt>) -> Expr {
+        Expr::Lambda {
+            id: ExprId(0),
+            params,
+            body,
         }
     }
 

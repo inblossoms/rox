@@ -646,6 +646,20 @@ impl Interpreter {
 
             Expr::This { id, keyword } => self.look_up_variable(keyword, id),
 
+            Expr::Lambda {
+                id: _,
+                params,
+                body,
+            } => {
+                // 为函数对象提供一个特殊的 "<anonymous>" 名字
+                Ok(Value::Function {
+                    name: "<anonymous>".to_string(),
+                    args: params.iter().map(|t| t.lexeme.clone()).collect(),
+                    body: body.clone(),
+                    closure: self.environment.clone(),
+                })
+            }
+
             Expr::Get { object, name } => {
                 let obj = self.evaluate(object)?;
 
