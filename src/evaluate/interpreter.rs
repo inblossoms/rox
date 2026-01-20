@@ -1250,7 +1250,14 @@ impl Interpreter {
     pub fn import_module(&mut self, import_path: &str) -> Result<Value, RuntimeError> {
         // 1. 提取路径
         let absolute_path = self.resolve_path(import_path)?;
-        let path_key = absolute_path.to_string_lossy().to_string();
+        //   let path_key = absolute_path.to_string_lossy().to_string();
+
+        let raw_path_str = absolute_path.to_string_lossy();
+        let path_key = if cfg!(windows) && raw_path_str.starts_with(r"\\?\") {
+            raw_path_str[4..].to_string()
+        } else {
+            raw_path_str.into_owned()
+        };
 
         // 2. 检查缓存 (这是打破循环依赖的第一道防线)
         if let Some(module) = self.modules.get(&path_key) {

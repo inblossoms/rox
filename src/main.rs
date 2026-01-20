@@ -1,6 +1,7 @@
 use std::{
-    env,
+    env, fs,
     io::{self, Write},
+    path::Path,
 };
 
 use crate::{
@@ -55,7 +56,40 @@ fn main() -> Result<(), RoxError> {
 
 fn run_file(file: &str, interpreter: &mut Interpreter) -> Result<Value, RoxError> {
     let source = reader::reader_source(file)?;
-    run_interpreter_with_state(source, interpreter)
+
+    // 设置初始路径上下文
+    // 获取入口文件的"绝对路径的父目录"
+    let entry_path = Path::new(file);
+
+    // 解析相对路径为绝对路径 (canonicalize: "scripts/file.rox" -> "/Users/me/rox/scripts/file.rox")
+    if let Ok(absolute_path) = fs::canonicalize(entry_path) {
+        if let Some(parent_dir) = absolute_path.parent() {
+            // 将入口文件所在的目录压入栈底
+            // 这样，脚本内的第一次 import 就会基于这个目录，而不是 CWD
+            interpreter.path_stack.push(parent_dir.to_path_buf());
+        }
+    } else {
+        // 如果路径解析失败（因为 reader_source 已经读到文件，所以不大会失败）
+        eprintln!(
+            "Warning: Could not resolve absolute path for entry file. Falling back to current working directory."
+        );
+        if let Ok(cwd) = env::current_dir() {
+            interpreter.path_stack.push(cwd);
+        } else {
+            return Err(RoxError::Evaluate(RuntimeError::Generic(
+                "Could not determine path context".into(),
+            )));
+        }
+    }
+
+    let result = run_interpreter_with_state(source, interpreter);
+
+    // 虽然程序将要退出，但依旧保持 Interpreter 状态干净（便于测试或多次调用）
+    if !interpreter.path_stack.is_empty() {
+        interpreter.path_stack.pop();
+    }
+
+    result
 }
 
 fn run_prompt(interpreter: &mut Interpreter) {
