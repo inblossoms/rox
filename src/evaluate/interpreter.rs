@@ -97,6 +97,9 @@ impl Interpreter {
 
     fn init_globals(env: &Rc<RefCell<Environment>>) {
         let mut env_mut = env.borrow_mut();
+        let fs_module = std_lib::io::file_system::create_module();
+
+        env_mut.define("fs".to_string(), fs_module);
 
         env_mut.define(
             "clock".to_string(),
