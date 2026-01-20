@@ -59,6 +59,25 @@ impl RoxInstance {
     }
 }
 
+// 模块的内部结构
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoxModule {
+    pub name: String,
+    pub exports: HashMap<String, Value>, // 导出表
+    /// 状态标记：区分由模块未初始化完成导致的变量未初始化或者变量不存在
+    pub is_initialized: bool,
+}
+
+impl RoxModule {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            exports: HashMap::new(),
+            is_initialized: false, // 默认为 false
+        }
+    }
+}
+
 /// 生函数类型别名
 /// 接收解释器引用(为了访问环境或报错)和参数列表
 pub type NativeFn = fn(&mut Interpreter, Vec<Value>) -> Result<Value, RuntimeError>;
@@ -100,6 +119,9 @@ pub enum Value {
         receiver: Box<Value>, // 'this' 对象 (eg. 那个 List 实例) this 指向的数据
         method: Box<Value>,   // NativeFunction 本身，要执行的函数
     },
+
+    // 模块化
+    Module(Rc<RefCell<RoxModule>>),
 }
 
 impl fmt::Display for Value {
@@ -145,6 +167,7 @@ impl fmt::Display for Value {
                     .join(", ")
             ),
             Value::Print(print) => write!(f, "{}", print),
+            Value::Module(m) => write!(f, "<module '{}'>", m.borrow().name),
         }
     }
 }
@@ -182,6 +205,7 @@ impl Value {
             Value::Dict(_) => "Dict",
             Value::Tuple(_) => "Tuple",
             Value::Print(_) => "Print",
+            Value::Module { .. } => "Module",
             Value::NativeFunction { .. } => "NativeFunction",
             Value::BoundNativeMethod { .. } => "BoundNativeMethod",
         }

@@ -1,8 +1,11 @@
 use crate::ast::{AST, Expr, ExprId, Operator, Stmt};
 use crate::evaluate::value::{RoxClass, RoxInstance};
 use crate::evaluate::{environment::Environment, error::RuntimeError, value::Value};
+use crate::std_lib::value::RoxModule;
 use crate::std_lib::{self, lookup_method};
 use crate::tokenizer::Token;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[allow(clippy::empty_line_after_doc_comments)]
@@ -56,6 +59,12 @@ pub struct Interpreter {
     /// - 如果查到了：使用 `environment.get_at(distance)` 精确获取变量（词法作用域）。
     /// - 如果没查到：假设是全局变量，去 `globals` 查找（动态作用域）。
     pub locals: HashMap<ExprId, usize>,
+    // 模块缓存 (Path -> Exports)
+    // Exports 通常是一个 Value::Dict
+    pub modules: HashMap<String, Value>,
+    // 路径栈，用于记录当前执行上下文的文件目录
+    // 栈顶始终是“当前正在执行的文件所在的文件夹”
+    pub path_stack: Vec<PathBuf>,
 }
 
 impl Interpreter {
@@ -69,32 +78,7 @@ impl Interpreter {
         // 创建根环境 (Global Scope)
         let globals = Rc::new(RefCell::new(Environment::default()));
 
-        // TODO: 注册原生函数，例如:
-        // globals.borrow_mut().define("clock".to_string(), Value::NativeFn(...));
-
-        {
-            let mut env = globals.borrow_mut();
-
-            // 定义 clock
-            env.define(
-                "clock".to_string(),
-                Value::NativeFunction {
-                    name: "clock".to_string(),
-                    arity: 0,
-                    func: std_lib::globals::clock,
-                },
-            );
-
-            // 定义 input
-            env.define(
-                "input".to_string(),
-                Value::NativeFunction {
-                    name: "input".to_string(),
-                    arity: 1, // 假设接受一个 prompt 参数
-                    func: std_lib::globals::input,
-                },
-            );
-        }
+        Self::init_globals(&globals);
 
         Self {
             // 初始状态下，当前环境就是全局环境
@@ -102,8 +86,43 @@ impl Interpreter {
             environment: globals.clone(),
             globals,
             locals: HashMap::new(),
+            modules: HashMap::new(),
+            path_stack: Vec::new(),
         }
     }
+
+    fn init_globals(env: &Rc<RefCell<Environment>>) {
+        let mut env_mut = env.borrow_mut();
+
+        env_mut.define(
+            "clock".to_string(),
+            Value::NativeFunction {
+                name: "clock".to_string(),
+                arity: 0,
+                func: std_lib::globals::clock,
+            },
+        );
+
+        env_mut.define(
+            "input".to_string(),
+            Value::NativeFunction {
+                name: "input".to_string(),
+                arity: 1,
+                func: std_lib::globals::input,
+            },
+        );
+
+        // 注册 import
+        env_mut.define(
+            "import".to_string(),
+            Value::NativeFunction {
+                name: "import".to_string(),
+                arity: 1,
+                func: std_lib::globals::import,
+            },
+        );
+    }
+
     // TODO：错误处理机制 (Try-Catch)
     // 目前 Runtime Error 会直接杀掉进程。
     // 实现 try { ... } catch (e) { ... }。
@@ -794,6 +813,30 @@ impl Interpreter {
                         )))
                     }
 
+                    Value::Module(module_rc) => {
+                        let module = module_rc.borrow();
+
+                        // 尝试查找变量
+                        if let Some(value) = module.exports.get(&name.lexeme) {
+                            return Ok(value.clone());
+                        }
+
+                        // 没找到，分析原因
+                        if !module.is_initialized {
+                            // A: 模块还在加载中（循环依赖）
+                            Err(RuntimeError::Generic(format!(
+                                "Accessing variable '{}' from module '{}' before it is fully initialized. (Circular Dependency detected)",
+                                name.lexeme, module.name
+                            )))
+                        } else {
+                            // B: 模块加载完成，变量不存在
+                            Err(RuntimeError::Generic(format!(
+                                "Module '{}' has no export '{}'.",
+                                module.name, name.lexeme
+                            )))
+                        }
+                    }
+
                     _ => Err(RuntimeError::TypeError(
                         "Only instances have properties.".into(),
                     )),
@@ -1200,6 +1243,161 @@ impl Interpreter {
                 r.type_name()
             ))),
         }
+    }
+
+    /// 加载并执行模块
+    /// path_str: 相对路径或绝对路径
+    pub fn import_module(&mut self, import_path: &str) -> Result<Value, RuntimeError> {
+        // 1. 提取路径
+        let absolute_path = self.resolve_path(import_path)?;
+        let path_key = absolute_path.to_string_lossy().to_string();
+
+        // 2. 检查缓存 (这是打破循环依赖的第一道防线)
+        if let Some(module) = self.modules.get(&path_key) {
+            return Ok(module.clone());
+        }
+
+        // 3. 内容读取
+        let source = fs::read_to_string(&absolute_path).map_err(|e| {
+            RuntimeError::Generic(format!("Failed to read module '{}': {}", path_key, e))
+        })?;
+
+        // 4. 预先缓存 (打破循环依赖的核心)
+        let rox_module = RoxModule::new(path_key.clone());
+        let module_value = Value::Module(Rc::new(RefCell::new(rox_module)));
+
+        self.modules.insert(path_key.clone(), module_value.clone());
+
+        // Thinking：
+        // 在执行代码之前，先把这个空的 Dict 放入缓存中。
+        // 如果 Module A 导入 B，B 又导入 A：
+        // a. A 创建空 Dict_A 放入缓存 -> 执行 A
+        // b. A 导入 B -> B 创建空 Dict_B 放入缓存 -> 执行 B
+        // c. B 导入 A -> 发现缓存中有 Dict_A (虽然是空的) -> 直接返回 Dict_A
+        // d. B 继续执行 (B 此时拿到的 A 是空的，所以 B 不能在顶层立即使用 A 的变量)
+        // e. B 执行完 -> 填充 Dict_B
+        // f. A 继续执行 -> 拿到完整的 Dict_B -> A 执行完 -> 填充 Dict_A
+        // 🌈 此时 B 持有的 Dict_A 引用会自动看到 A 填充的数据
+        self.modules.insert(path_key.clone(), module_value.clone());
+
+        // 5. 更新路径栈
+        let module_dir = absolute_path
+            .parent()
+            .ok_or_else(|| RuntimeError::Generic("Failed to get module directory".into()))?
+            .to_path_buf();
+
+        self.path_stack.push(module_dir);
+
+        // 6. 编译执行
+        // 使用闭包捕获 Result，确保无论成功失败都能执行 cleanup (出栈)
+        let result = (|| -> Result<(), RuntimeError> {
+            // Tokenize
+            let tokens = crate::tokenizer::tokenize(crate::reader::Source { contents: source })
+                .map_err(|e| {
+                    RuntimeError::Generic(format!("Scan error in '{}': {}", path_key, e))
+                })?;
+
+            // Parse
+            let ast = crate::parser::parse(tokens).map_err(|e| {
+                RuntimeError::Generic(format!("Parse error in '{}': {}", path_key, e))
+            })?;
+
+            // 准备环境
+            let module_env = Rc::new(RefCell::new(Environment::new()));
+            Self::init_globals(&module_env); // 注入全局方法
+
+            // 切换上下文
+            let previous_globals = self.globals.clone();
+            let previous_env = self.environment.clone();
+            self.globals = module_env.clone();
+            self.environment = module_env.clone();
+
+            // Resolve (复用 locals 表)
+            let mut resolver = crate::resolver::Resolver::new(self);
+            if let Err(msg) = resolver.resolve_stmts(&ast.body) {
+                // 恢复环境
+                self.globals = previous_globals;
+                self.environment = previous_env;
+                return Err(RuntimeError::Generic(format!(
+                    "Resolution error in '{}': {}",
+                    path_key, msg
+                )));
+            }
+
+            // Execute
+            let exec_res = (|| {
+                for stmt in ast.body {
+                    self.execute(&stmt)?;
+                }
+                Ok(())
+            })();
+
+            // 执行完毕，准备导出数据
+            if exec_res.is_ok() {
+                let env = self.environment.borrow();
+
+                // 获取 RoxModule 的可变借用
+                // module_value： Value::Module(Rc<RefCell<RoxModule>>)
+                if let Value::Module(m_rc) = &module_value {
+                    let mut module = m_rc.borrow_mut();
+
+                    // 填充导出
+                    for (name, val) in &env.values {
+                        module.exports.insert(name.clone(), val.clone());
+                    }
+
+                    // 标记初始化完成
+                    module.is_initialized = true;
+                }
+            }
+
+            // 恢复环境
+            self.globals = previous_globals;
+            self.environment = previous_env;
+
+            exec_res
+        })();
+
+        // 7. 恢复路径栈
+        self.path_stack.pop();
+
+        // 错误处理
+        match result {
+            Ok(_) => Ok(module_value), // 返回那个已经被填充好的 Dict
+            Err(e) => {
+                // 如果执行失败，把半成品的缓存删掉，以免下次导入错误的模块
+                self.modules.remove(&path_key);
+                Err(e)
+            }
+        }
+    }
+
+    /// 解析导入路径为绝对路径
+    fn resolve_path(&self, import_path: &str) -> Result<PathBuf, RuntimeError> {
+        // 基准路径 (栈顶) + 相对路径 -> 绝对路径
+        let path = Path::new(import_path);
+
+        // 获取基准目录 (Anchor)
+        let anchor = if let Some(current_dir) = self.path_stack.last() {
+            // 如果正在执行某个文件，以该文件所在目录为基准
+            current_dir.clone()
+        } else {
+            // 如果是入口文件或 REPL，以当前进程工作目录为基准
+            std::env::current_dir().map_err(|e| {
+                RuntimeError::Generic(format!("Cannot get current working directory: {}", e))
+            })?
+        };
+
+        let joined_path = anchor.join(path);
+
+        // 获取绝对路径 (Canonicalize) 访问文件系统，顺便验证文件是否存在
+        fs::canonicalize(&joined_path).map_err(|e| {
+            RuntimeError::Generic(format!(
+                "Cannot find module '{}': {}",
+                joined_path.display(),
+                e
+            ))
+        })
     }
 
     /// 获取全局变量的值（仅在测试时可用）
