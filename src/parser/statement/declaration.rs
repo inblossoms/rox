@@ -144,4 +144,22 @@ impl ParseHelper {
 
         Ok((params, body))
     }
+
+    pub fn parse_export_statement(&mut self) -> Result<Stmt, Error> {
+        // export 后面只能跟声明语句 (var, fun, class)
+
+        let stmt = if self.match_token(&[TokenType::Class]) {
+            self.parse_class_declaration()?
+        } else if self.match_token(&[TokenType::Fun]) {
+            self.parse_function_declaration()?
+        } else if self.match_token(&[TokenType::Var]) {
+            self.parse_var_declaration()?
+        } else {
+            return Err(self.error(self.peek(), "Expect declaration after 'export'."));
+        };
+
+        Ok(Stmt::Export {
+            stmt: Box::new(stmt),
+        })
+    }
 }

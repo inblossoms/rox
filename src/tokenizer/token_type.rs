@@ -62,6 +62,7 @@ pub enum TokenType {
     Break,
     Try,
     Catch,
+    Export,
 
     Eof,
 }

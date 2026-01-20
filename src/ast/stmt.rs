@@ -75,6 +75,10 @@ pub enum Stmt {
 
     Break,
     Continue,
+    // export 语句：包裹一个声明 (Var, Function, Class)
+    Export {
+        stmt: Box<Stmt>,
+    },
 }
 
 impl Stmt {
@@ -164,5 +168,11 @@ impl Stmt {
 
     pub fn continue_() -> Stmt {
         Stmt::Continue
+    }
+
+    pub fn export(stmt: Stmt) -> Stmt {
+        Stmt::Export {
+            stmt: Box::new(stmt),
+        }
     }
 }

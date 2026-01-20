@@ -397,7 +397,9 @@ impl ParseHelper {
         if self.match_token(&[TokenType::Print]) {
             return self.parse_print_statement();
         }
-
+        if self.match_token(&[TokenType::Export]) {
+            return self.parse_export_statement();
+        }
         // 解析表达式语句（以分号结尾的表达式）
         self.parse_expression_statement()
     }

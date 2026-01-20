@@ -1,4 +1,3 @@
-// src/parser/statement/exception.rs
 use crate::{
     ast::Stmt,
     parser::{error::Error, parse::ParseHelper},

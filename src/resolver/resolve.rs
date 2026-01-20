@@ -249,6 +249,11 @@ impl<'a> Resolver<'a> {
                 }
             }
 
+            Stmt::Export { stmt } => {
+                // Thinking: 如果 scopes.len() > 1 (不在全局)，报错 "Can only export from top-level code."
+                self.resolve_stmt(stmt)?;
+            }
+
             // 空语句 无需操作
             Stmt::Empty => (),
         }

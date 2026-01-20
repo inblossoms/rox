@@ -235,6 +235,9 @@ pub fn format_stmt(stmt: &Stmt) -> String {
         },
         Stmt::Break => "break;".to_string(),
         Stmt::Continue => "continue;".to_string(),
+        Stmt::Export { stmt } => {
+            format!("export {};", format_stmt(stmt))
+        }
         Stmt::Empty => ";".to_string(),
     }
 }

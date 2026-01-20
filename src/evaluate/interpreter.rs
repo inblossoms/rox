@@ -4,6 +4,7 @@ use crate::evaluate::{environment::Environment, error::RuntimeError, value::Valu
 use crate::std_lib::value::RoxModule;
 use crate::std_lib::{self, lookup_method};
 use crate::tokenizer::Token;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -65,6 +66,8 @@ pub struct Interpreter {
     // 路径栈，用于记录当前执行上下文的文件目录
     // 栈顶始终是“当前正在执行的文件所在的文件夹”
     pub path_stack: Vec<PathBuf>,
+    // 导出栈，栈顶是当前正在执行的模块的导出列表。
+    pub exports_stack: Vec<HashSet<String>>,
 }
 
 impl Interpreter {
@@ -88,6 +91,7 @@ impl Interpreter {
             locals: HashMap::new(),
             modules: HashMap::new(),
             path_stack: Vec::new(),
+            exports_stack: Vec::new(),
         }
     }
 
@@ -390,6 +394,26 @@ impl Interpreter {
             }
             Stmt::Break => Err(RuntimeError::Break),
             Stmt::Continue => Err(RuntimeError::Continue),
+            Stmt::Export { stmt } => {
+                // 先执行内部的声明语句 (这会在 environment 中定义变量)
+                self.execute(stmt)?;
+
+                // 将定义的名字加入当前的导出集合（栈），从 stmt 中提取名字
+                let name = match &**stmt {
+                    Stmt::VarDecl { name, .. } => name.lexeme.clone(),
+                    Stmt::Function { name, .. } => name.lexeme.clone(),
+                    Stmt::Class { name, .. } => name.lexeme.clone(),
+                    _ => panic!("Parser allowed invalid export statement"),
+                };
+
+                if let Some(current_exports) = self.exports_stack.last_mut() {
+                    current_exports.insert(name);
+                } else {
+                    // 如果栈为空，说明是在 REPL 或主程序顶层 export，忽略
+                }
+
+                Ok(())
+            }
             Stmt::Empty => Ok(()),
         }
     }
@@ -1264,12 +1288,15 @@ impl Interpreter {
             return Ok(module.clone());
         }
 
-        // 3. 内容读取
+        // 3. 为新模块压入导出集合
+        self.exports_stack.push(HashSet::new());
+
+        // 4. 内容读取
         let source = fs::read_to_string(&absolute_path).map_err(|e| {
             RuntimeError::Generic(format!("Failed to read module '{}': {}", path_key, e))
         })?;
 
-        // 4. 预先缓存 (打破循环依赖的核心)
+        // 5. 预先缓存 (打破循环依赖的核心)
         let rox_module = RoxModule::new(path_key.clone());
         let module_value = Value::Module(Rc::new(RefCell::new(rox_module)));
 
@@ -1287,7 +1314,7 @@ impl Interpreter {
         // 🌈 此时 B 持有的 Dict_A 引用会自动看到 A 填充的数据
         self.modules.insert(path_key.clone(), module_value.clone());
 
-        // 5. 更新路径栈
+        // 6. 更新路径栈
         let module_dir = absolute_path
             .parent()
             .ok_or_else(|| RuntimeError::Generic("Failed to get module directory".into()))?
@@ -1295,7 +1322,7 @@ impl Interpreter {
 
         self.path_stack.push(module_dir);
 
-        // 6. 编译执行
+        // 7. 编译执行
         // 使用闭包捕获 Result，确保无论成功失败都能执行 cleanup (出栈)
         let result = (|| -> Result<(), RuntimeError> {
             // Tokenize
@@ -1343,14 +1370,19 @@ impl Interpreter {
             if exec_res.is_ok() {
                 let env = self.environment.borrow();
 
+                // 获取导出列表，不可以 pop 导出列表，因为最后的 path_stack.pop(); 需要恢复路径。通过 last 来 peek
+                let exported_names = self.exports_stack.last().unwrap();
+
                 // 获取 RoxModule 的可变借用
                 // module_value： Value::Module(Rc<RefCell<RoxModule>>)
                 if let Value::Module(m_rc) = &module_value {
                     let mut module = m_rc.borrow_mut();
 
                     // 填充导出
-                    for (name, val) in &env.values {
-                        module.exports.insert(name.clone(), val.clone());
+                    for name in exported_names {
+                        if let Some(val) = env.values.get(name) {
+                            module.exports.insert(name.clone(), val.clone());
+                        }
                     }
 
                     // 标记初始化完成
@@ -1362,10 +1394,13 @@ impl Interpreter {
             self.globals = previous_globals;
             self.environment = previous_env;
 
+            // 清理导出栈
+            self.exports_stack.pop();
+
             exec_res
         })();
 
-        // 7. 恢复路径栈
+        // 8. 恢复路径栈
         self.path_stack.pop();
 
         // 错误处理
