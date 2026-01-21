@@ -98,8 +98,10 @@ impl Interpreter {
     fn init_globals(env: &Rc<RefCell<Environment>>) {
         let mut env_mut = env.borrow_mut();
         let fs_module = std_lib::io::file_system::create_module();
+        let math_module = std_lib::math::create_module();
 
         env_mut.define("fs".to_string(), fs_module);
+        env_mut.define("math".to_string(), math_module);
 
         env_mut.define(
             "clock".to_string(),
@@ -119,7 +121,6 @@ impl Interpreter {
             },
         );
 
-        // 注册 import
         env_mut.define(
             "import".to_string(),
             Value::NativeFunction {

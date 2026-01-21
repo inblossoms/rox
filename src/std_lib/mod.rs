@@ -2,6 +2,7 @@ pub mod dict;
 pub mod globals;
 pub mod io;
 pub mod list;
+pub mod math;
 pub mod string;
 pub mod utils;
 
