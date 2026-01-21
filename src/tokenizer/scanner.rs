@@ -309,6 +309,7 @@ impl Scanner {
             "." => TokenType::Dot,
             "try" => TokenType::Try,
             "catch" => TokenType::Catch,
+            "throw" => TokenType::Throw,
             "export" => TokenType::Export,
             _ => TokenType::Identifier,
         };

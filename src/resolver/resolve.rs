@@ -156,6 +156,10 @@ impl<'a> Resolver<'a> {
                     self.resolve_stmt(else_branch)?;
                 }
             }
+            Stmt::Throw { keyword, value } => {
+                self.declare(keyword)?;
+                self.resolve_expr(value)?;
+            }
             Stmt::Try {
                 try_branch,
                 catch_var,

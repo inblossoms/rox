@@ -196,6 +196,9 @@ pub fn format_stmt(stmt: &Stmt) -> String {
                 format_stmt(catch_branch)
             )
         }
+        Stmt::Throw { keyword: _, value } => {
+            format!("throw {}", format_expr(value))
+        }
         Stmt::While { condition, body } => {
             format!("while ({}) {}", format_expr(condition), format_stmt(body))
         }

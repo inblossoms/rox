@@ -359,6 +359,9 @@ impl ParseHelper {
         if self.match_token(&[TokenType::Try]) {
             return self.parse_try_statement();
         }
+        if self.match_token(&[TokenType::Throw]) {
+            return self.parse_throw_statement();
+        }
         if self.match_token(&[TokenType::While]) {
             return self.parse_while_statement();
         }
@@ -379,9 +382,6 @@ impl ParseHelper {
             let statements = self.parse_block()?;
             return Ok(Stmt::Block { body: statements });
         }
-        //   if self.match_token(&[TokenType::LeftBracket]) {
-        // 		  todo!()
-        //   }
         if self.match_token(&[TokenType::Return]) {
             return self.parse_return_statement();
         }

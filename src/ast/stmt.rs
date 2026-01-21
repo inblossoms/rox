@@ -52,6 +52,11 @@ pub enum Stmt {
         catch_branch: Box<Stmt>, // Block
     },
 
+    Throw {
+        keyword: Token, // 报错定位
+        value: Expr,
+    },
+
     While {
         condition: Expr,
         body: Box<Stmt>,

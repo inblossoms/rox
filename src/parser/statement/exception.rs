@@ -27,4 +27,11 @@ impl ParseHelper {
             catch_branch: Box::new(catch_branch),
         })
     }
+
+    pub fn parse_throw_statement(&mut self) -> Result<Stmt, Error> {
+        let keyword = self.previous().clone();
+        let value = self.parse_expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after throw value.")?;
+        Ok(Stmt::Throw { keyword, value })
+    }
 }
