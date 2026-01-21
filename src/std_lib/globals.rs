@@ -41,8 +41,3 @@ pub fn import(interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value, 
         ))
     }
 }
-
-// IO 与系统交互 (System Library)
-// TODO:
-// file_read(path), file_write(path): 文件操作。
-// exit(code): 退出程序。
