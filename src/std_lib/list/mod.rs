@@ -9,6 +9,8 @@ pub fn lookup(name: &str) -> Option<super::Value> {
         "insert" => native_fn!("insert", 2, methods::insert),
         "join" => native_fn!("join", 1, methods::join),
         "reverse" => native_fn!("reverse", 0, methods::reverse),
+        "map" => native_fn!("map", 1, methods::map),
+        "filter" => native_fn!("filter", 1, methods::filter),
         _ => None,
     }
 }

@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::std_lib::{Interpreter, Value, error::RuntimeError, utils::ensure_list};
 
 pub fn push(_: &mut Interpreter, args: Vec<Value>) -> Result<Value, RuntimeError> {
@@ -80,6 +82,62 @@ pub fn reverse(_: &mut Interpreter, args: Vec<Value>) -> Result<Value, RuntimeEr
     let mut list_ref = list.borrow_mut();
     list_ref.reverse();
     Ok(Value::None)
+}
+
+// list.map(callback)
+pub fn map(interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value, RuntimeError> {
+    // args[0] 是 this (list)
+    // args[1] 是 callback
+    if args.len() != 2 {
+        return Err(RuntimeError::Generic("Expected 1 argument.".into()));
+    }
+
+    let list_val = &args[0];
+    let callback = &args[1];
+
+    if let Value::List(list_rc) = list_val {
+        let list = list_rc.borrow();
+        let mut new_elements = Vec::new();
+
+        for item in list.iter() {
+            // Rust 调用 Rox 回调
+            // 构造参数列表 [item]
+            let result = interpreter.call_value(callback, vec![item.clone()])?;
+            new_elements.push(result);
+        }
+
+        // 返回新的 List
+        Ok(Value::List(Rc::new(RefCell::new(new_elements))))
+    } else {
+        Err(RuntimeError::TypeError("Expected a list.".into()))
+    }
+}
+
+// list.filter(callback)
+pub fn filter(interpreter: &mut Interpreter, args: Vec<Value>) -> Result<Value, RuntimeError> {
+    if args.len() != 2 {
+        return Err(RuntimeError::Generic("Expected 1 argument.".into()));
+    }
+
+    let list_val = &args[0];
+    let callback = &args[1];
+
+    if let Value::List(list_rc) = list_val {
+        let list = list_rc.borrow();
+        let mut new_elements = Vec::new();
+
+        for item in list.iter() {
+            let result = interpreter.call_value(callback, vec![item.clone()])?;
+
+            // 判断回调结果是否为真
+            if result.is_truthy() {
+                new_elements.push(item.clone());
+            }
+        }
+        Ok(Value::List(Rc::new(RefCell::new(new_elements))))
+    } else {
+        Err(RuntimeError::TypeError("Expected a list.".into()))
+    }
 }
 
 #[cfg(test)]
