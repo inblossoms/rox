@@ -1,5 +1,5 @@
 use crate::ast::{AST, Expr, ExprId, Operator, Stmt};
-use crate::evaluate::value::{RoxClass, RoxInstance};
+use crate::evaluate::value::RoxClass;
 use crate::evaluate::{environment::Environment, error::RuntimeError, value::Value};
 use crate::std_lib::value::RoxModule;
 use crate::std_lib::{self, lookup_method};
@@ -583,162 +583,15 @@ impl Interpreter {
                 // 检查 callee 的类型是否是 Expr::Variable，如果是 evaluate 内部会自动调用 look_up_variable
                 let callee_value = self.evaluate(callee)?;
                 //  let callee_value = self.look_up_variable(name_token, id)?;
-
                 //  println!("DEBUG: Calling {:?}", callee_value);
 
+                // 求值所有参数
                 let mut arg_vals = Vec::new();
                 for arg in args {
                     arg_vals.push(self.evaluate(arg)?);
                 }
 
-                match callee_value {
-                    // 函数调用
-                    Value::Function {
-                        args: param_names,
-                        body,
-                        closure,
-                        ..
-                    } => {
-                        if args.len() != param_names.len() {
-                            return Err(RuntimeError::Generic("Arity mismatch".into()));
-                        }
-
-                        // 准备环境 (参数求值 + 绑定)
-                        let mut arg_vals = Vec::new();
-                        for arg in args {
-                            arg_vals.push(self.evaluate(arg)?);
-                        }
-
-                        // 闭包环境
-                        let func_env = Rc::new(RefCell::new(Environment::with_enclosing(closure)));
-                        for (i, param_name) in param_names.iter().enumerate() {
-                            func_env
-                                .borrow_mut()
-                                .define(param_name.clone(), arg_vals[i].clone());
-                        }
-
-                        // 执行 (委托给 helper)
-                        let result = self.execute_block(&body, (*func_env).clone().into_inner());
-
-                        match result {
-                            Ok(_) => Ok(Value::Nil),
-                            Err(RuntimeError::Return(v)) => Ok(v), // 把错误变回值
-                            Err(e) => Err(e),                      // 其他错误继续抛出
-                        }
-                    }
-
-                    // 类实例化
-                    Value::Class(klass) => {
-                        // 创建实例
-                        let instance = Rc::new(RefCell::new(RoxInstance::new(klass.clone())));
-
-                        // 是否有初始化器 (init)
-                        let initializer = klass.borrow().find_method("init");
-
-                        if let Some(init_method) = initializer {
-                            // 有 init 方法：绑定并调用
-
-                            // 绑定 'this' 到新创建的 instance
-                            //     Note：init_method 是 Value::Function，bind 返回一个新的 Value::Function
-                            let bound_init = init_method.bind(Value::Instance(instance.clone()));
-
-                            // 解包绑定后的函数，准备执行
-                            if let Value::Function {
-                                args: param_names,
-                                body,
-                                closure,
-                                ..
-                            } = bound_init
-                            {
-                                // 检查参数数量
-                                if arg_vals.len() != param_names.len() {
-                                    return Err(RuntimeError::Generic(format!(
-                                        "Expected {} arguments but got {}.",
-                                        param_names.len(),
-                                        arg_vals.len()
-                                    )));
-                                }
-
-                                // 创建环境并绑定参数
-                                let func_env =
-                                    Rc::new(RefCell::new(Environment::with_enclosing(closure)));
-                                for (i, param_name) in param_names.iter().enumerate() {
-                                    func_env
-                                        .borrow_mut()
-                                        .define(param_name.clone(), arg_vals[i].clone());
-                                }
-
-                                // 执行 init 函数体
-                                let result =
-                                    self.execute_block(&body, (*func_env).clone().into_inner());
-
-                                // 处理 init 的执行结果
-                                match result {
-                                    Ok(_) => {}                        // init 正常执行完毕
-                                    Err(RuntimeError::Return(_)) => {} // 捕获 return; (Resolver 会确保 init 不能 return value)
-                                    Err(e) => return Err(e),
-                                }
-                            }
-                        } else {
-                            // 没有 init 方法：参数必须为空
-                            if !arg_vals.is_empty() {
-                                return Err(RuntimeError::Generic(format!(
-                                    "Expected 0 arguments but got {}.",
-                                    arg_vals.len()
-                                )));
-                            }
-                        }
-
-                        // 无论是否有 init，实例化的结果永远是 instance 本身
-                        Ok(Value::Instance(instance))
-                    }
-
-                    // 处理绑定了的原生方法
-                    // eg: list.push(1)
-                    //     receiver = list ins
-                    //     method = push
-                    //     arg_vals = [1]
-                    Value::BoundNativeMethod { receiver, method } => {
-                        if let Value::NativeFunction { arity, func, .. } = *method {
-                            // 检查参数数量
-                            if arg_vals.len() != arity {
-                                return Err(RuntimeError::Generic(format!(
-                                    "Expected {} arguments but got {}.",
-                                    arity,
-                                    arg_vals.len()
-                                )));
-                            }
-
-                            // core：构造参数列表 [this, args...]
-                            // 将 receiver (this) 插入到第一个位置
-                            let mut full_args = Vec::with_capacity(arg_vals.len() + 1);
-                            full_args.push(*receiver); // receiver 是 Box<Value>，解引用拿到 Value
-                            full_args.extend(arg_vals);
-
-                            // 调用 Rust 原生函数
-                            // func 类型是 fn(&mut Interpreter, Vec<Value>) -> ...
-                            let result = func(self, full_args)?;
-                            Ok(result)
-                        } else {
-                            panic!("BoundNativeMethod must wrap a NativeFunction");
-                        }
-                    }
-
-                    // 全局原生函数 (clock, input..)
-                    Value::NativeFunction { arity, func, .. } => {
-                        if arg_vals.len() != arity {
-                            return Err(RuntimeError::Generic(format!(
-                                "Expected {} arguments but got {}.",
-                                arity,
-                                arg_vals.len()
-                            )));
-                        }
-                        // 不同于对象方法需要 this ，全局函数并不需要
-                        func(self, arg_vals)
-                    }
-
-                    _ => Err(RuntimeError::TypeError("Can only call functions".into())),
-                }
+                self.call_value(&callee_value, arg_vals)
             }
 
             Expr::This { id, keyword } => self.look_up_variable(keyword, id),
@@ -1278,6 +1131,106 @@ impl Interpreter {
         }
     }
 
+    /// 公共 API：调用一个 Lox 值
+    /// 参数 args 必须是已经求值过的 Value 列表
+    pub fn call_value(&mut self, callee: &Value, args: Vec<Value>) -> Result<Value, RuntimeError> {
+        match callee {
+            Value::Function {
+                args: param_names,
+                body,
+                closure,
+                ..
+            } => {
+                if args.len() != param_names.len() {
+                    return Err(RuntimeError::Generic(format!(
+                        "Expected {} arguments but got {}.",
+                        param_names.len(),
+                        args.len()
+                    )));
+                }
+
+                // 闭包环境
+                let func_env = Rc::new(RefCell::new(Environment::with_enclosing(closure.clone())));
+
+                // 绑定参数 (此时 args 已经是 Value 了，直接绑定)
+                for (i, param_name) in param_names.iter().enumerate() {
+                    func_env
+                        .borrow_mut()
+                        .define(param_name.clone(), args[i].clone());
+                }
+
+                let result = self.execute_block(body, (*func_env).clone().into_inner());
+
+                match result {
+                    Ok(_) => Ok(Value::Nil),
+                    Err(RuntimeError::Return(v)) => Ok(v),
+                    Err(e) => Err(e),
+                }
+            }
+
+            // 类实例化
+            Value::Class(klass) => {
+                let instance = Rc::new(RefCell::new(super::value::RoxInstance::new(klass.clone())));
+
+                // 查找 init
+                if let Some(init_method) = klass.borrow().find_method("init") {
+                    // 递归调用自己来处理 init (因为它是一个 Function)
+                    let bound_init = init_method.bind(Value::Instance(instance.clone()));
+                    self.call_value(&bound_init, args)?; // 这里的 args 直接传给 init
+                } else if !args.is_empty() {
+                    Err(RuntimeError::Generic(format!(
+                        "Expected 0 arguments but got {}.",
+                        args.len()
+                    )))?;
+                }
+
+                Ok(Value::Instance(instance))
+            }
+
+            // 绑定的原生方法
+            Value::BoundNativeMethod { receiver, method } => {
+                // 解包出内部的原生函数
+                if let Value::NativeFunction { arity, func, .. } = &**method {
+                    // 检查传入的参数数量
+                    // 这里 args 还不包含 this，所以 args.len() 是 1，arity 也是 1。
+                    if args.len() != *arity {
+                        return Err(RuntimeError::Generic(format!(
+                            "Expected {} arguments but got {}.",
+                            arity,
+                            args.len()
+                        )));
+                    }
+
+                    // 参数列表 [this, args...]
+                    let mut full_args = Vec::with_capacity(args.len() + 1);
+                    full_args.push((**receiver).clone()); // 插入 this
+                    full_args.extend(args);
+
+                    // 递归调用 self.call_value 会进入 NativeFunction 分支，在那里的检查不包含 this
+                    // 直接调用 func 跳过 NativeFunction 分支里的 arity 检查，否则会出现参数获取多个错误
+                    func(self, full_args)
+                } else {
+                    panic!("BoundNativeMethod must wrap a NativeFunction");
+                }
+            }
+
+            // 4. 原生函数
+            Value::NativeFunction { arity, func, .. } => {
+                if args.len() != *arity {
+                    return Err(RuntimeError::Generic(format!(
+                        "Expected {} arguments but got {}.",
+                        arity,
+                        args.len()
+                    )));
+                }
+                func(self, args)
+            }
+
+            _ => Err(RuntimeError::TypeError(
+                "Can only call functions and classes.".into(),
+            )),
+        }
+    }
     /// 加载并执行模块
     /// path_str: 相对路径或绝对路径
     pub fn import_module(&mut self, import_path: &str) -> Result<Value, RuntimeError> {
