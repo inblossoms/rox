@@ -45,7 +45,7 @@ repos:
       - id: cargo-deny
         name: cargo deny
         description: Check cargo dependencies
-        entry: bash -c 'cargo deny --disable-fetch check' # entry: cargo deny check
+        entry: bash -c 'cargo deny check --disable-fetch' # entry: cargo deny check
         language: system
         files: ^Cargo\.(toml|lock)$ # 只有当依赖文件变更时触发
         pass_filenames: false
