@@ -11,8 +11,9 @@ keywords = ["interpreter", "rox", "compiler", "language"]
 categories = ["compilers", "command-line-utilities"]
 default-run = "rox"
 
-[[bin]]
-name = "rox"
+[dependencies]
+dirs = "6.0.0"
+rustyline = "17.x"
 
 [dev-dependencies]
 pretty_assertions = { version = "1.4.1", default-features = false, features = [
