@@ -7,8 +7,9 @@ use crate::tokenizer;
 
 type Read = reader::Error;
 type Parse = parser::Error;
-type Evaluate = evaluate::error::RuntimeError;
 type Tokenize = tokenizer::Error;
+type Evaluate = evaluate::error::RuntimeError;
+type Readline = rustyline::error::ReadlineError;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -17,6 +18,7 @@ pub enum RoxError {
     Parse(Parse),
     Evaluate(Evaluate),
     Tokenize(Tokenize),
+    Readline(Readline),
 }
 
 impl fmt::Display for RoxError {
@@ -26,6 +28,7 @@ impl fmt::Display for RoxError {
             RoxError::Parse(error) => write!(f, "{}", error),
             RoxError::Evaluate(error) => write!(f, "{}", error),
             RoxError::Tokenize(error) => write!(f, "{}", error),
+            RoxError::Readline(e) => write!(f, "Readline Error: {}", e),
         }
     }
 }
@@ -42,4 +45,4 @@ macro_rules! impl_from_error {
     };
 }
 
-impl_from_error!(RoxError, Read, Parse, Evaluate, Tokenize);
+impl_from_error!(RoxError, Read, Parse, Evaluate, Tokenize, Readline);
