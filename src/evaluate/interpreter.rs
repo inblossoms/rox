@@ -1131,7 +1131,7 @@ impl Interpreter {
         }
     }
 
-    /// 公共 API：调用一个 Lox 值
+    /// 公共 API：允许调用一个 Rox 值
     /// 参数 args 必须是已经求值过的 Value 列表
     pub fn call_value(&mut self, callee: &Value, args: Vec<Value>) -> Result<Value, RuntimeError> {
         match callee {
