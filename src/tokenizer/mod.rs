@@ -4,7 +4,7 @@ mod scanner;
 mod token;
 mod token_type;
 
-pub use error::Error;
+pub use error::{Error, ScanError};
 pub use literal::Literal;
 pub use scanner::tokenize;
 pub use token::{Token, Tokens};
