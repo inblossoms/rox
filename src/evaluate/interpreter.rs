@@ -1,4 +1,4 @@
-use crate::ast::{AST, Expr, ExprId, Operator, Stmt};
+use crate::ast::{Ast, Expr, ExprId, Operator, Stmt};
 use crate::evaluate::value::RoxClass;
 use crate::evaluate::{environment::Environment, error::RuntimeError, value::Value};
 use crate::std_lib::value::RoxModule;
@@ -136,7 +136,7 @@ impl Interpreter {
     // 实现 try { ... } catch (e) { ... }。
     // 使用 catch_unwind 或者在 Result 路径上增加一种 Error::RuntimeCaught 状态，不让它直接冒泡到 main。
     /// 入口函数：解释执行 AST
-    pub fn interpret(&mut self, ast: AST) -> Result<Value, RuntimeError> {
+    pub fn interpret(&mut self, ast: Ast) -> Result<Value, RuntimeError> {
         // ast.body 是 Vec<Stmt>
         for stmt in ast.body {
             match self.execute(&stmt) {
@@ -1152,7 +1152,7 @@ impl Interpreter {
                 // 闭包环境
                 let func_env = Rc::new(RefCell::new(Environment::with_enclosing(closure.clone())));
 
-                // 绑定参数 (此时 args 已经是 Value 了，直接绑定)
+                // 绑定参数 (此时 args 已经是 Value，直接绑定)
                 for (i, param_name) in param_names.iter().enumerate() {
                     func_env
                         .borrow_mut()

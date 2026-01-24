@@ -1,5 +1,5 @@
 use crate::{
-    ast::{AST, Expr, Operator, stmt::Stmt},
+    ast::{Ast, Expr, Operator, stmt::Stmt},
     parser::error::Error,
     tokenizer::{Token, TokenType, Tokens},
 };
@@ -522,8 +522,8 @@ impl Parser {
 ///
 /// # 返回值
 /// * `Result<AST, Error>` - 解析得到的抽象语法树或错误
-pub fn parse(tokens: Tokens) -> Result<AST, Error> {
+pub fn parse(tokens: Tokens) -> Result<Ast, Error> {
     let mut parser = Parser::new(tokens);
     let statements = parser.parse_program()?;
-    Ok(AST { body: statements })
+    Ok(Ast { body: statements })
 }

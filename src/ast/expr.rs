@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct AST {
+pub struct Ast {
     pub body: Vec<Stmt>,
 }
 
