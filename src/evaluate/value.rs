@@ -82,7 +82,7 @@ impl RoxModule {
 /// 接收解释器引用(为了访问环境或报错)和参数列表
 pub type NativeFn = fn(&mut Interpreter, Vec<Value>) -> Result<Value, RuntimeError>;
 
-#[allow(unpredictable_function_pointer_comparisons)]
+#[allow(unpredictable_function_pointer_comparisons, dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
