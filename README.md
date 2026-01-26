@@ -32,6 +32,83 @@ Rox implements a standard compiler pipeline with a focus on separation of concer
    -  **Environment**: Uses `Rc<RefCell<Environment>>` to manage the scope chain, allowing efficient memory sharing for closures without a garbage collector.
    -  **Side Tables**: Utilizes resolution data to perform direct variable lookups (hopping scopes) rather than dynamic searches.
 
+## ⚡ Language Highlights
+
+Rox extends the Lox language with modern features, making it a capable scripting language.
+
+### 1. Robust Type System & Collections
+
+Supports **Lists**, **Dicts**, and **Tuples** with native method chaining. Rox is strongly typed (no implicit type coercion failures).
+
+```javascript
+var data = [1, 2, 3];
+var map = {"a": 10, "b": 20};
+
+// Native methods with Lambdas
+var squared = data.map(fun(x) { return x * x; });
+print "Result: " + squared; // [1, 4, 9]
+```
+
+### 2. Full Object-Oriented Programming
+
+Complete support for **Classes**, **Inheritance**, **Mixins** (via closures), and **Static Analysis** for `this`/`super`.
+
+```javascript
+class Shape {
+    init(name) { this.name = name; }
+    area() { return 0; }
+}
+
+class Circle < Shape {
+    init(r) {
+        super.init("Circle");
+        this.r = r;
+    }
+    area() { return math.PI * this.r * this.r; }
+}
+
+print Circle(5).area();
+```
+
+### 3. Modular System
+
+Build complex applications with **File-based Modules**. Features isolated environments, caching, and cycle detection.
+
+```javascript
+// math_lib.rox
+export var PI = 3.14159;
+export fun add(a, b) { return a + b; }
+
+// main.rox
+var m = import("./math_lib.rox");
+print m.add(10, 5);
+```
+
+### 4. Safety & Control Flow
+
+Includes **Try-Catch** for error handling and standard loop controls (`break`/`continue`).
+
+```javascript
+try {
+    var file = fs.readFile("missing.txt");
+} catch (e) {
+    print "Error handled: " + e;
+}
+
+for (var i = 0; i < 10; i += 1) {
+    if (i % 2 == 0) continue;
+    print i;
+}
+```
+
+### 5. Built-in Standard Library
+
+Everything you need to get started.
+
+-  **Math**: `sin`, `cos`, `sqrt`, `pow`, `abs`, etc.
+-  **IO/FS**: `input()`, `clock()`, `fs.readFile`, `fs.writeFile`.
+-  **Core**: String manipulation (`len`, `upper`), List operations (`push`, `pop`, `join`), Dict access.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -72,55 +149,131 @@ cargo run -- scripts/fibonacci.rox
 
 ## 📝 Syntax Examples
 
-**Classes and Inheritance:**
+### 1. Functional Programming with Collections
+
+Rox supports anonymous functions (lambdas) and native list operations.
 
 ```javascript
-class Doughnut {
-  cook() {
-    print "Fry until golden brown.";
-  }
-}
+var numbers = [1, 2, 3, 4, 5];
 
-class BostonCream < Doughnut {
-  cook() {
-    super.cook();
-    print "Pipe full of custard.";
-  }
-}
+// Use map with a lambda function
+var squared = numbers.map(fun(n) {
+    return n * n;
+});
 
-BostonCream().cook();
+// Use filter
+var evens = squared.filter(fun(n) {
+    return n % 2 == 0;
+});
+
+print evens; // Output: [4, 16]
 ```
 
-**Closures:**
+### 2. Object-Oriented Programming
+
+Support for classes, inheritance, `this`, and `super`.
 
 ```javascript
-fun makeCounter() {
-  var i = 0;
-  fun count() {
-    i = i + 1;
-    print i;
-  }
-  return count;
+class Shape {
+    init(name) {
+        this.name = name;
+    }
+
+    area() {
+        return 0;
+    }
+
+    describe() {
+        print "I am a " + this.name + " with area " + this.area();
+    }
 }
 
-var counter = makeCounter();
-counter(); // "1"
-counter(); // "2"
+class Circle < Shape {
+    init(radius) {
+        super.init("Circle");
+        this.radius = radius;
+    }
+
+    area() {
+        return math.PI * this.radius * this.radius;
+    }
+}
+
+var c = Circle(4);
+c.describe();
+// Output: I am a Circle with area 50.265482...
 ```
 
-**Bitwise Operations & Control Flow:**
+### 3. Error Handling & Control Flow
+
+Robust control flow with `try-catch` and loop controls.
 
 ```javascript
-var flags = 5; // 0101
-var mask = 1;  // 0001
-
-if ((flags & mask) == 1) {
-    print "Bit is set!";
+fun riskyOperation(x) {
+    if (x < 0) {
+        throw "Negative number error!";
+    }
+    return 100 / x;
 }
 
-for (var i = 0; i < 10; i += 1) {
-    if (i % 2 == 0) continue;
-    print i;
+var inputs = [10, 0, -5, 20];
+
+for (var i = 0; i < inputs.len(); i += 1) {
+    var n = inputs[i];
+
+    if (n == 0) {
+        print "Skipping zero to avoid division error...";
+        continue;
+    }
+
+    try {
+        var result = riskyOperation(n);
+        print "Result: " + result;
+    } catch (err) {
+        print "Caught exception: " + err;
+    }
+}
+```
+
+### 4. Module System
+
+Rox features a module system with explicit exports and path resolution.
+
+**`math_utils.rox`**:
+
+```javascript
+var internal_rate = 1.5; // Private variable
+
+export fun scale(n) {
+    return n * internal_rate;
+}
+
+export var version = "1.0.0";
+```
+
+**`main.rox`**:
+
+```javascript
+var utils = import("./math_utils.rox");
+
+print "Using utils version: " + utils.version;
+print utils.scale(10); // Output: 15
+// print utils.internal_rate; // Error: Module has no export 'internal_rate'
+```
+
+### 5. File System & Native Modules
+
+Interaction with the OS using the built-in `fs` module.
+
+```javascript
+var path = "log.txt";
+
+if (fs.exists(path)) {
+    var content = fs.readFile(path);
+    print "Current log: " + content;
+} else {
+    fs.writeFile(path, "Initialization log...");
+    print "Log file created.";
 }
 ```
 
@@ -141,12 +294,14 @@ cargo test evaluate
 
 ```text
 src/
+├── std_lib/        // Native modules
 ├── reader/         // Source file reading
 ├── ast/            // AST definitions (Expr/Stmt)
 ├── tokenizer/      // Lexical analysis
 ├── parser/         // Parsing logic & ParseHelper
 ├── resolver/       // Semantic analysis & Variable resolution
 ├── evaluate/       // Runtime execution
+├── diagnostic.rs   // Diagnostic messages
 ├── error.rs        // Unified error handling
 └── main.rs         // Entry point (CLI)
 ```
