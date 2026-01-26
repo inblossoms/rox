@@ -1060,6 +1060,18 @@ impl Interpreter {
                 Ok(Value::String(s1))
             }
 
+            (Value::String(mut s1), other) => {
+                // 使用 other.to_string() 进行隐式转换
+                s1.push_str(&other.to_string());
+                Ok(Value::String(s1))
+            }
+
+            (other, Value::String(s2)) => {
+                let mut res = other.to_string();
+                res.push_str(&s2);
+                Ok(Value::String(res))
+            }
+
             //  列表、元组、字典
             (Value::List(list1), Value::List(list2)) => {
                 list1.borrow_mut().extend(list2.borrow().iter().cloned());
