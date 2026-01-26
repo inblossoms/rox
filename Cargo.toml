@@ -1,6 +1,6 @@
 [package]
 name = "rox"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Ray <https://github.com/inblossoms/rox>"]
 description = "A simple programming language interpreter written in Rust"
