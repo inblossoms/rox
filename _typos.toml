@@ -1,4 +1,8 @@
-[default.extend-words]
 
 [files]
-extend-exclude = ["CHANGELOG.md"]
+extend-exclude = ["CHANGELOG.md", "Cargo.lock"]
+
+[default.extend-words]
+ba = "ba"
+fo = "fo"
+caf = "caf"
